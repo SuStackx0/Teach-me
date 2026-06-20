@@ -1,13 +1,13 @@
 {
   "curriculum_version": 2,
   "completed": [],
-  "in_progress": "transformer-micro-architecture",
+  "in_progress": null,
   "streak": 0,
   "last_session_date": null,
   "weak_areas": [],
   "preferences": {
     "depth": "expert",
-    "session_minutes": 60,
+    "session_minutes": 90,
     "focus_areas": ["ai-ml", "backend", "system-design"]
   },
   "learner": {
