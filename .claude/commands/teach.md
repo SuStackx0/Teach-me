@@ -645,7 +645,7 @@ After the completion output, pre-generate tomorrow's lesson for instant startup.
 | `.teach/memory.json` missing | Create it fresh with the default schema (streak: 0, completed: [], in_progress: null, last_session_date: null, weak_areas: []). |
 | Streamlit not installed | "Run: `pip install -r /Users/sumanthg/Documents/teach-me/app/requirements.txt`" |
 | Port 8501 already in use | "Port 8501 is busy — Streamlit may already be running. Try: `open http://localhost:8501`" |
-| Slug not found in curriculum | "Slug '[slug]' not found in curriculum.json. Available slugs: [list first 10 slugs]." |
+| ai-engineer agent fails to return valid JSON | Use the fallback topic defined in Step 2c and proceed normally. |
 
 ---
 
