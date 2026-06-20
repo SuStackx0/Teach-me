@@ -128,7 +128,7 @@ weak_areas_list = ", ".join([
 ]) or "None"
 ```
 
-Spawn an Agent with **subagent_type `voltagent-data-ai:ai-engineer`** using this exact prompt (substitute the [PLACEHOLDERS]):
+Spawn an Agent with **subagent_type `ai-engineer`** using this exact prompt (substitute the [PLACEHOLDERS]):
 
 ```
 You are an AI engineer curriculum designer selecting today's learning topic for Sumanth G.
@@ -626,7 +626,7 @@ See you tomorrow! 🧠
 After the completion output, pre-generate tomorrow's lesson for instant startup.
 
 1. Build updated context: include the just-completed topic in completed_list, increment n_completed
-2. Spawn a **voltagent-data-ai:ai-engineer** Agent with the same topic-selection prompt from Step 2c (with updated context)
+2. Spawn an **ai-engineer** Agent with the same topic-selection prompt from Step 2c (with updated context)
 3. Parse the returned JSON to get the next topic {title, slug, domain, concepts, why_next, difficulty, estimated_minutes}
 4. If agent fails or parse fails: output `⚠️  Pre-generation skipped — next topic will be selected fresh on next /teach` and stop
 5. If successful: Generate the full lesson using SAME parallel agent structure as Steps 4a–4d:
