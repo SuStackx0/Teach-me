@@ -1,0 +1,30 @@
+{
+  "curriculum_version": 2,
+  "completed": [],
+  "in_progress": "transformer-micro-architecture",
+  "streak": 0,
+  "last_session_date": null,
+  "weak_areas": [],
+  "preferences": {
+    "depth": "expert",
+    "session_minutes": 60,
+    "focus_areas": ["ai-ml", "backend", "system-design"]
+  },
+  "learner": {
+    "name": "Sumanth",
+    "role": "AI Backend Engineer",
+    "company": "uCube.ai",
+    "known_well": [
+      "PagedAttention & continuous batching (built from scratch)",
+      "Hybrid RAG over Neo4j + Weaviate",
+      "LoRA fine-tuning",
+      "Multi-agent systems (LangChain/LangGraph)",
+      "vLLM/SGLang deployments",
+      "Cross-encoder reranking",
+      "Semantic caching",
+      "FastAPI + AsyncIO + Redis",
+      "PyTorch",
+      "Docker"
+    ]
+  }
+}

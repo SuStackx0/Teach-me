@@ -1,0 +1,16 @@
+resume/
+.teach/current_lesson.json
+.teach/next_lesson.json
+.teach/archive/
+.teach/session_state.json
+__pycache__/
+*.pyc
+.env
+.DS_Store
+**/.DS_Store
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+.streamlit/

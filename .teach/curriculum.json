@@ -1,0 +1,1254 @@
+[
+  {
+    "id": 1,
+    "slug": "transformer-micro-architecture",
+    "title": "Transformer Micro-Architecture: RMSNorm, SwiGLU, RoPE & ALiBi",
+    "category": "ai-ml",
+    "why_next": "You serve these architectures daily but the specific design choices \u2014 why RMSNorm over LayerNorm, why SwiGLU over GeLU, why RoPE beats learned position embeddings \u2014 affect inference speed, quantization behaviour, and fine-tuning stability.",
+    "difficulty": "intermediate",
+    "estimated_minutes": 75,
+    "concepts": [
+      "RMSNorm vs LayerNorm: stability & speed",
+      "SwiGLU gate mechanism & parameter count",
+      "RoPE rotation math vs ALiBi linear bias",
+      "pre-norm vs post-norm residual stream",
+      "activation function impact on quantization"
+    ],
+    "prerequisites": [
+      "transformer architecture",
+      "attention mechanism",
+      "layer normalization"
+    ]
+  },
+  {
+    "id": 2,
+    "slug": "fastapi-dependency-injection-lifespan",
+    "title": "FastAPI Internals: Dependency Injection, Background Tasks & Lifespan",
+    "category": "backend",
+    "why_next": "You use FastAPI daily but mostly the surface. The DI resolution graph, sub-dependencies, yield-based teardown, lifespan vs startup events, and BackgroundTasks vs proper task queues are the patterns that keep a large service maintainable.",
+    "difficulty": "intermediate",
+    "estimated_minutes": 60,
+    "concepts": [
+      "dependency resolution graph & caching per request",
+      "yield dependencies & teardown ordering",
+      "lifespan context vs deprecated startup/shutdown events",
+      "BackgroundTasks vs task queue tradeoffs",
+      "scoped dependencies & dependency overrides for testing"
+    ],
+    "prerequisites": [
+      "FastAPI",
+      "asyncio"
+    ]
+  },
+  {
+    "id": 3,
+    "slug": "tokenization-bpe-internals",
+    "title": "Tokenization Deep Dive: BPE, Unigram LM & Token Budget Effects",
+    "category": "ai-ml",
+    "why_next": "Tokenization choices affect inference throughput, your RAG chunking strategy, and fine-tuning data quality. Understanding BPE merge rules, unigram LM, and byte-level fallbacks lets you debug token budget explosions and pick chunking boundaries correctly.",
+    "difficulty": "intermediate",
+    "estimated_minutes": 60,
+    "concepts": [
+      "BPE merge algorithm & vocabulary construction",
+      "unigram LM tokenization (SentencePiece)",
+      "byte-level BPE & UTF-8 handling",
+      "tokenization artifacts affecting model quality",
+      "token budget calculation for chunking & context windows"
+    ],
+    "prerequisites": [
+      "transformer architecture",
+      "RAG"
+    ]
+  },
+  {
+    "id": 4,
+    "slug": "rest-api-design-versioning",
+    "title": "REST API Design, Versioning & Backward Compatibility",
+    "category": "backend",
+    "why_next": "Clean API surfaces outlive their implementations. Resource modeling, idempotency, pagination, error contracts, and versioning strategy (URI vs header vs content negotiation) determine whether clients break on every change.",
+    "difficulty": "intermediate",
+    "estimated_minutes": 60,
+    "concepts": [
+      "resource modeling & richardson maturity",
+      "idempotency keys & safe retries",
+      "cursor vs offset pagination",
+      "error envelope & problem+json design",
+      "versioning strategies & deprecation lifecycle"
+    ],
+    "prerequisites": [
+      "FastAPI",
+      "REST APIs",
+      "HTTP fundamentals"
+    ]
+  },
+  {
+    "id": 5,
+    "slug": "embedding-models-contrastive",
+    "title": "Embedding Models & Contrastive Training",
+    "category": "ai-ml",
+    "why_next": "You run hybrid RAG with off-the-shelf embeddings. Understanding InfoNCE, hard-negative mining, and Matryoshka embeddings lets you fine-tune a retriever for your domain data \u2014 the biggest quality lever you haven't pulled yet.",
+    "difficulty": "intermediate",
+    "estimated_minutes": 75,
+    "concepts": [
+      "InfoNCE / NT-Xent contrastive loss",
+      "in-batch & mined hard negatives",
+      "Matryoshka representation learning",
+      "pooling strategies (CLS/mean/last)",
+      "embedding fine-tuning with LoRA"
+    ],
+    "prerequisites": [
+      "RAG",
+      "Weaviate",
+      "cross-encoder reranking"
+    ]
+  },
+  {
+    "id": 6,
+    "slug": "postgres-query-planner-indexing",
+    "title": "PostgreSQL Query Planner, Indexing & EXPLAIN ANALYZE",
+    "category": "backend",
+    "why_next": "You use PostgreSQL as a black box. Reading EXPLAIN ANALYZE, understanding the planner's cost model, and choosing B-tree vs GIN vs BRIN vs partial indexes is the single highest-leverage skill for backend performance.",
+    "difficulty": "intermediate",
+    "estimated_minutes": 75,
+    "concepts": [
+      "query planner cost model & statistics",
+      "reading EXPLAIN ANALYZE & node types",
+      "B-tree vs GIN vs GiST vs BRIN vs partial indexes",
+      "index-only scans & covering indexes",
+      "MVCC, bloat & VACUUM internals"
+    ],
+    "prerequisites": [
+      "PostgreSQL",
+      "SQL fundamentals"
+    ]
+  },
+  {
+    "id": 7,
+    "slug": "constrained-decoding-grammars",
+    "title": "Constrained Decoding & Grammar-Based Generation",
+    "category": "ai-ml",
+    "why_next": "Your agents need reliable JSON and tool-call outputs. outlines/XGrammar compile JSON schemas to FSMs that mask logits each step \u2014 turning flaky parsing into guaranteed-valid output, and slotting directly into your sampling loop.",
+    "difficulty": "intermediate",
+    "estimated_minutes": 75,
+    "concepts": [
+      "FSM/regex-to-logit-mask compilation",
+      "context-free grammar constraints",
+      "token healing for prefix continuations",
+      "speculative + constrained decoding interaction",
+      "JSON schema to grammar compilation"
+    ],
+    "prerequisites": [
+      "autoregressive decoding",
+      "sampling",
+      "inference engines"
+    ]
+  },
+  {
+    "id": 8,
+    "slug": "redis-internals-persistence-clustering",
+    "title": "Redis Internals: Persistence, Clustering & Data Structures",
+    "category": "backend",
+    "why_next": "You use Redis for caching and pub/sub. Go deeper: RDB vs AOF durability, the single-threaded event loop, Streams for event sourcing, Lua scripting for atomicity, and Cluster hash-slot sharding \u2014 the patterns that make Redis carry real load.",
+    "difficulty": "intermediate",
+    "estimated_minutes": 75,
+    "concepts": [
+      "RDB snapshot vs AOF persistence & fsync policies",
+      "single-threaded event loop & pipelining",
+      "Streams, sorted sets & probabilistic structures",
+      "Lua scripting for atomic multi-key ops",
+      "Cluster hash slots, resharding & hot-key mitigation"
+    ],
+    "prerequisites": [
+      "Redis",
+      "asyncio"
+    ]
+  },
+  {
+    "id": 9,
+    "slug": "sampling-decoding-strategies",
+    "title": "Sampling & Decoding Strategies: Temperature, Top-p, Min-p & Beam",
+    "category": "ai-ml",
+    "why_next": "You tune temperature and top-p by feel. The math behind nucleus, top-k, min-p, typical sampling, and beam search determines output diversity, repetition, and latency \u2014 and interacts directly with the constrained decoding and speculative work in your engine.",
+    "difficulty": "intermediate",
+    "estimated_minutes": 60,
+    "concepts": [
+      "temperature scaling on logits",
+      "top-k vs nucleus (top-p) vs min-p",
+      "repetition & presence penalties",
+      "beam search vs sampling tradeoffs",
+      "typical & contrastive decoding"
+    ],
+    "prerequisites": [
+      "autoregressive decoding",
+      "softmax",
+      "inference engines"
+    ]
+  },
+  {
+    "id": 10,
+    "slug": "rate-limiting-throttling-general",
+    "title": "Rate Limiting, Throttling & Backpressure",
+    "category": "backend",
+    "why_next": "Every public service needs protection from overload. Token bucket vs sliding window vs leaky bucket, distributed rate limiting in Redis, and backpressure/load shedding are the controls that keep a system alive under a traffic spike.",
+    "difficulty": "intermediate",
+    "estimated_minutes": 60,
+    "concepts": [
+      "token bucket vs sliding window vs leaky bucket",
+      "distributed rate limiting with Redis + Lua",
+      "per-user / per-org / global quota tiers",
+      "load shedding & admission control",
+      "rate-limit headers & retry-after design"
+    ],
+    "prerequisites": [
+      "Redis",
+      "FastAPI",
+      "asyncio"
+    ]
+  },
+  {
+    "id": 11,
+    "slug": "kv-cache-quantization-eviction",
+    "title": "KV Cache Quantization & Eviction Policies",
+    "category": "ai-ml",
+    "why_next": "Your PagedAttention engine manages KV blocks. The next frontier is shrinking them: KIVI per-channel quant, H2O heavy-hitter eviction, StreamingLLM attention sinks \u2014 all slot into your block allocator.",
+    "difficulty": "advanced",
+    "estimated_minutes": 75,
+    "concepts": [
+      "per-channel vs per-token KV quant",
+      "attention sink tokens (StreamingLLM)",
+      "heavy-hitter eviction (H2O)",
+      "block-level CPU offload",
+      "accuracy vs memory tradeoff"
+    ],
+    "prerequisites": [
+      "KV cache",
+      "PagedAttention",
+      "attention mechanism"
+    ]
+  },
+  {
+    "id": 12,
+    "slug": "circuit-breakers-resilience-patterns",
+    "title": "Circuit Breakers, Bulkheads, Retries & Timeouts",
+    "category": "backend",
+    "why_next": "When a downstream dependency is slow or failing, a naive retry storm amplifies the problem. Circuit breakers, bulkhead isolation, exponential backoff with jitter, hedged requests, and deadline propagation keep cascading failures contained.",
+    "difficulty": "intermediate",
+    "estimated_minutes": 60,
+    "concepts": [
+      "circuit breaker states (closed/open/half-open)",
+      "exponential backoff with full jitter",
+      "bulkhead isolation & connection pools",
+      "hedged / speculative requests",
+      "timeout cascades & deadline propagation"
+    ],
+    "prerequisites": [
+      "asyncio",
+      "FastAPI",
+      "distributed systems basics"
+    ]
+  },
+  {
+    "id": 13,
+    "slug": "quantization-deep-gptq-awq-fp8",
+    "title": "Quantization Deep Dive: GPTQ, AWQ, FP8",
+    "category": "ai-ml",
+    "why_next": "You deploy quantized models via vLLM/SGLang. Go a layer down: GPTQ's Hessian-based rounding, AWQ's activation-aware scaling, FP8 E4M3 vs E5M2 \u2014 so you can reason about when to use each and what quality you're trading away.",
+    "difficulty": "advanced",
+    "estimated_minutes": 90,
+    "concepts": [
+      "weight-only vs weight+activation quant",
+      "GPTQ OBQ / Hessian inverse",
+      "AWQ salient-channel scaling",
+      "FP8 E4M3 vs E5M2 numerics",
+      "SmoothQuant outlier migration"
+    ],
+    "prerequisites": [
+      "LoRA fine-tuning",
+      "vLLM deployment",
+      "floating point representation"
+    ]
+  },
+  {
+    "id": 14,
+    "slug": "grpc-protobuf-streaming",
+    "title": "gRPC & Protobuf: Schema Design and Streaming",
+    "category": "backend",
+    "why_next": "You use REST everywhere. gRPC's proto3 schema-first contracts, HTTP/2 multiplexing, and bidirectional streaming are strictly better for internal service-to-service calls and streaming workloads where REST starts to show seams.",
+    "difficulty": "intermediate",
+    "estimated_minutes": 75,
+    "concepts": [
+      "proto3 schema design & wire format",
+      "unary vs server / client / bidi streaming",
+      "HTTP/2 flow control & multiplexing",
+      "interceptors for auth, retries & tracing",
+      "schema evolution & backward compatibility"
+    ],
+    "prerequisites": [
+      "FastAPI",
+      "REST APIs",
+      "HTTP fundamentals"
+    ]
+  },
+  {
+    "id": 15,
+    "slug": "speculative-decoding",
+    "title": "Speculative Decoding & Draft Models",
+    "category": "ai-ml",
+    "why_next": "You built continuous batching + PagedAttention from scratch. Speculative decoding is the single biggest latency win left and slots directly into your autoregressive verify loop.",
+    "difficulty": "advanced",
+    "estimated_minutes": 90,
+    "concepts": [
+      "draft-then-verify loop",
+      "acceptance rate math",
+      "rejection sampling correctness proof",
+      "self-speculation (Medusa/EAGLE)",
+      "batch-level speculation"
+    ],
+    "prerequisites": [
+      "KV cache",
+      "autoregressive decoding",
+      "continuous batching"
+    ]
+  },
+  {
+    "id": 16,
+    "slug": "database-transactions-isolation",
+    "title": "Database Transactions: Isolation Levels & Concurrency Control",
+    "category": "backend",
+    "why_next": "Correctness under concurrency is where most data bugs hide. Read-committed vs repeatable-read vs serializable, the anomalies each prevents, MVCC vs locking, and optimistic vs pessimistic concurrency decide whether your money/inventory logic is sound.",
+    "difficulty": "advanced",
+    "estimated_minutes": 75,
+    "concepts": [
+      "ANSI isolation levels & the anomalies they prevent",
+      "MVCC vs two-phase locking",
+      "write skew & serializable snapshot isolation",
+      "optimistic vs pessimistic concurrency control",
+      "deadlock detection & lock ordering"
+    ],
+    "prerequisites": [
+      "PostgreSQL",
+      "SQL fundamentals",
+      "concurrency basics"
+    ]
+  },
+  {
+    "id": 17,
+    "slug": "transformer-micro-architecture-moe",
+    "title": "Mixture-of-Experts: Routing, Load Balancing & Capacity",
+    "category": "ai-ml",
+    "why_next": "DeepSeek, Mixtral, and most frontier models are MoE. Top-k gating, expert parallelism, capacity factor, and token dropping are fundamentally different from dense serving \u2014 and your vLLM setup needs to know this.",
+    "difficulty": "advanced",
+    "estimated_minutes": 90,
+    "concepts": [
+      "top-k gating & learned router",
+      "expert parallelism (EP) vs tensor parallelism",
+      "load balancing aux loss",
+      "capacity factor & token dropping",
+      "grouped GEMM for expert batching"
+    ],
+    "prerequisites": [
+      "transformer architecture",
+      "vLLM deployment"
+    ]
+  },
+  {
+    "id": 18,
+    "slug": "lld-design-patterns-solid",
+    "title": "LLD: SOLID, Design Patterns & Clean Interfaces",
+    "category": "system-design",
+    "why_next": "Your services grow messy without disciplined low-level design. SOLID, dependency inversion, and the factory/strategy/observer/adapter patterns are the vocabulary for decoupling modules so they stay testable and changeable.",
+    "difficulty": "advanced",
+    "estimated_minutes": 75,
+    "concepts": [
+      "SOLID principles with concrete refactors",
+      "dependency inversion & DI containers",
+      "factory / strategy / observer / adapter patterns",
+      "composition over inheritance",
+      "anti-corruption layers & interface segregation"
+    ],
+    "prerequisites": [
+      "object-oriented design",
+      "Python"
+    ]
+  },
+  {
+    "id": 19,
+    "slug": "long-context-attention",
+    "title": "Long-Context Attention: RoPE Scaling, Ring Attention & Sparse",
+    "category": "ai-ml",
+    "why_next": "Your RAG system fights context limits constantly. YaRN/NTK RoPE scaling, ring attention for million-token context, and sparse patterns let you reason about when to extend context vs retrieve \u2014 and the quality tradeoffs of each.",
+    "difficulty": "advanced",
+    "estimated_minutes": 90,
+    "concepts": [
+      "RoPE & position interpolation math",
+      "NTK-aware & YaRN scaling",
+      "ring attention (sequence parallelism)",
+      "sliding window + global tokens",
+      "perplexity degradation vs context length"
+    ],
+    "prerequisites": [
+      "attention mechanism",
+      "RAG",
+      "positional encodings"
+    ]
+  },
+  {
+    "id": 20,
+    "slug": "kafka-partitioning-exactly-once",
+    "title": "Kafka: Partitioning, Consumer Groups & Exactly-Once Semantics",
+    "category": "system-design",
+    "why_next": "Event-driven backbones decouple producers from consumers and enable replay. Partition assignment, consumer-group rebalancing, the idempotent-producer + transaction machinery behind exactly-once, and lag monitoring are the core of stream processing.",
+    "difficulty": "advanced",
+    "estimated_minutes": 90,
+    "concepts": [
+      "topic partitioning & key-based ordering",
+      "consumer groups & rebalancing protocols",
+      "idempotent producers + transactions = exactly-once",
+      "log compaction & retention policies",
+      "consumer lag monitoring & backpressure"
+    ],
+    "prerequisites": [
+      "asyncio",
+      "PostgreSQL",
+      "distributed systems basics"
+    ]
+  },
+  {
+    "id": 21,
+    "slug": "rlhf-dpo-alignment",
+    "title": "RLHF, DPO & Preference Alignment",
+    "category": "ai-ml",
+    "why_next": "You've done SFT-style LoRA. DPO \u2014 the cleaner successor to PPO-RLHF \u2014 is the natural next training skill. It also clarifies how the models you serve were aligned and why they behave under adversarial prompts.",
+    "difficulty": "advanced",
+    "estimated_minutes": 90,
+    "concepts": [
+      "reward modeling from preference pairs",
+      "PPO-RLHF loop & KL penalty",
+      "DPO derivation & implicit reward",
+      "reference model & beta hyperparameter",
+      "reward hacking / over-optimization"
+    ],
+    "prerequisites": [
+      "LoRA fine-tuning",
+      "PyTorch",
+      "cross-entropy loss"
+    ]
+  },
+  {
+    "id": 22,
+    "slug": "consistent-hashing-dht",
+    "title": "Consistent Hashing & Distributed Hash Tables",
+    "category": "system-design",
+    "why_next": "Consistent hashing is the primitive behind sharded caches, partitioned databases, and load balancers. Virtual nodes, bounded-load variants, and rendezvous hashing determine how your system rebalances when nodes join or fail.",
+    "difficulty": "advanced",
+    "estimated_minutes": 75,
+    "concepts": [
+      "hash ring & virtual nodes",
+      "key redistribution on node add/remove",
+      "rendezvous (HRW) hashing",
+      "consistent hashing with bounded loads",
+      "replication placement on the ring"
+    ],
+    "prerequisites": [
+      "hashing fundamentals",
+      "distributed systems basics"
+    ]
+  },
+  {
+    "id": 23,
+    "slug": "peft-beyond-lora",
+    "title": "PEFT Beyond LoRA: QLoRA, DoRA, LoRA-FA & Adapter Merging",
+    "category": "ai-ml",
+    "why_next": "You know LoRA. QLoRA's NF4 + double quantization, DoRA's magnitude/direction decomposition, and adapter merging unlock fine-tuning larger models on the same hardware and serving multiple adapters on one base model.",
+    "difficulty": "advanced",
+    "estimated_minutes": 75,
+    "concepts": [
+      "QLoRA NF4 & double quantization",
+      "paged AdamW optimizer",
+      "DoRA magnitude/direction decomposition",
+      "LoRA merging & multi-adapter serving",
+      "rank selection & target-module strategy"
+    ],
+    "prerequisites": [
+      "LoRA fine-tuning",
+      "quantization basics",
+      "PyTorch"
+    ]
+  },
+  {
+    "id": 24,
+    "slug": "cap-theorem-consistency-models",
+    "title": "CAP, PACELC & Consistency Models",
+    "category": "system-design",
+    "why_next": "Every distributed datastore choice is a consistency tradeoff. CAP and PACELC, the spectrum from linearizable to eventual to causal consistency, and quorum (R+W>N) math are the framework for reasoning about what your system actually guarantees.",
+    "difficulty": "advanced",
+    "estimated_minutes": 75,
+    "concepts": [
+      "CAP theorem & PACELC refinement",
+      "linearizable vs sequential vs causal vs eventual",
+      "quorum reads/writes (R + W > N)",
+      "read-your-writes & monotonic reads",
+      "tunable consistency in Dynamo-style stores"
+    ],
+    "prerequisites": [
+      "distributed systems basics",
+      "database replication basics"
+    ]
+  },
+  {
+    "id": 25,
+    "slug": "scaling-laws-chinchilla",
+    "title": "Scaling Laws: Chinchilla, Compute-Optimal Training & Data Quality",
+    "category": "ai-ml",
+    "why_next": "You fine-tune models but probably pick them by benchmark. Scaling laws tell you the exact compute-optimal (N, D) pair for a FLOP budget, and Chinchilla revised the prior that bigger is always better.",
+    "difficulty": "advanced",
+    "estimated_minutes": 75,
+    "concepts": [
+      "Kaplan vs Chinchilla scaling exponents",
+      "compute-optimal N and D for a fixed C",
+      "data quality multiplier effect",
+      "irreducible loss & model saturation",
+      "fine-tuning vs pre-training budget splits"
+    ],
+    "prerequisites": [
+      "transformer architecture",
+      "LoRA fine-tuning"
+    ]
+  },
+  {
+    "id": 26,
+    "slug": "database-sharding-replication",
+    "title": "Database Sharding & Replication Strategies",
+    "category": "system-design",
+    "why_next": "Scaling a database past one node forces hard choices. Range vs hash vs directory sharding, sync vs async replication, leader election, failover, and the resharding problem are what separate a prototype DB layer from one that survives growth.",
+    "difficulty": "advanced",
+    "estimated_minutes": 90,
+    "concepts": [
+      "range vs hash vs directory-based sharding",
+      "synchronous vs asynchronous replication",
+      "leader-follower vs multi-leader vs leaderless",
+      "failover, split-brain & fencing",
+      "online resharding & cross-shard queries"
+    ],
+    "prerequisites": [
+      "PostgreSQL",
+      "consistent hashing",
+      "CAP theorem"
+    ]
+  },
+  {
+    "id": 27,
+    "slug": "synthetic-data-distillation",
+    "title": "Synthetic Data Generation & Knowledge Distillation",
+    "category": "ai-ml",
+    "why_next": "You've done SFT-style fine-tuning. Distillation (teacher logits \u2192 student), self-instruct generation, rejection sampling, and evol-instruct are the data-engine skills behind every high-quality fine-tune \u2014 directly applicable to your uCube.ai work.",
+    "difficulty": "advanced",
+    "estimated_minutes": 75,
+    "concepts": [
+      "logit-level vs sequence-level distillation",
+      "self-instruct & evol-instruct generation",
+      "rejection sampling / best-of-N filtering",
+      "data quality scoring with reward models",
+      "constitutional / RLAIF data generation"
+    ],
+    "prerequisites": [
+      "LoRA fine-tuning",
+      "RLHF/DPO"
+    ]
+  },
+  {
+    "id": 28,
+    "slug": "event-sourcing-cqrs",
+    "title": "Event Sourcing & CQRS",
+    "category": "system-design",
+    "why_next": "Storing state as an immutable event log instead of mutable rows gives you audit, replay, and temporal queries for free. CQRS splits the write and read models \u2014 powerful, but it introduces eventual consistency and projection-rebuild complexity you must design for.",
+    "difficulty": "advanced",
+    "estimated_minutes": 90,
+    "concepts": [
+      "event log as source of truth",
+      "command vs query model separation",
+      "projections & read-model rebuilds",
+      "snapshots for replay performance",
+      "eventual consistency & idempotent event handlers"
+    ],
+    "prerequisites": [
+      "Kafka",
+      "database transactions",
+      "distributed systems basics"
+    ]
+  },
+  {
+    "id": 29,
+    "slug": "multimodal-vlm-architecture",
+    "title": "Multimodal & Vision-Language Model Architecture",
+    "category": "ai-ml",
+    "why_next": "A genuine gap in your stack. How VLMs fuse vision encoders (CLIP/SigLIP) with LLMs via projectors, image tokenization costs, high-res tiling, and how multimodal inputs change your serving assumptions and KV cache sizing.",
+    "difficulty": "advanced",
+    "estimated_minutes": 90,
+    "concepts": [
+      "vision encoder + projector architecture (LLaVA style)",
+      "image tokenization & patch embeddings",
+      "high-res tiling & token budget explosion",
+      "cross-attention vs early fusion tradeoffs",
+      "multimodal RAG"
+    ],
+    "prerequisites": [
+      "transformer architecture",
+      "embedding models",
+      "RAG"
+    ]
+  },
+  {
+    "id": 30,
+    "slug": "saga-distributed-transactions",
+    "title": "Saga Pattern & Distributed Transactions",
+    "category": "system-design",
+    "why_next": "You can't run a 2PC across microservices in practice. Sagas coordinate multi-service workflows with compensating transactions \u2014 orchestration vs choreography, the outbox pattern, and idempotency are how you keep distributed state consistent without locks.",
+    "difficulty": "advanced",
+    "estimated_minutes": 75,
+    "concepts": [
+      "orchestration vs choreography sagas",
+      "compensating transactions & rollback semantics",
+      "transactional outbox & change data capture",
+      "idempotency & exactly-once handling",
+      "why 2PC fails at microservice scale"
+    ],
+    "prerequisites": [
+      "event sourcing",
+      "Kafka",
+      "database transactions"
+    ]
+  },
+  {
+    "id": 31,
+    "slug": "model-merging-techniques",
+    "title": "Model Merging: Task Arithmetic, TIES, DARE & SLERP",
+    "category": "ai-ml",
+    "why_next": "Model merging combines multiple LoRA-fine-tuned checkpoints into one multi-skill model without retraining. This builds on your LoRA work and gives you a cheap path to multi-capability models for different uCube.ai use cases.",
+    "difficulty": "advanced",
+    "estimated_minutes": 60,
+    "concepts": [
+      "task vectors / task arithmetic",
+      "TIES (trim-elect-sign-merge)",
+      "DARE drop-and-rescale",
+      "SLERP spherical interpolation",
+      "layer-wise & passthrough merging strategies"
+    ],
+    "prerequisites": [
+      "LoRA fine-tuning",
+      "PEFT beyond LoRA",
+      "linear algebra"
+    ]
+  },
+  {
+    "id": 32,
+    "slug": "crdt-conflict-resolution",
+    "title": "CRDTs & Conflict Resolution in Distributed Systems",
+    "category": "system-design",
+    "why_next": "When multiple nodes accept writes, conflicts are inevitable. CRDTs (G-counters, OR-sets, LWW-registers) give mathematically guaranteed convergence without coordination \u2014 the foundation of collaborative and offline-first systems.",
+    "difficulty": "advanced",
+    "estimated_minutes": 75,
+    "concepts": [
+      "state-based (CvRDT) vs op-based (CmRDT)",
+      "G-counter, PN-counter, OR-set, LWW-register",
+      "join-semilattice & monotonic convergence",
+      "vector clocks & version vectors",
+      "last-write-wins vs merge semantics tradeoffs"
+    ],
+    "prerequisites": [
+      "CAP theorem",
+      "distributed systems basics",
+      "vector clocks"
+    ]
+  },
+  {
+    "id": 33,
+    "slug": "llm-uncertainty-calibration",
+    "title": "LLM Uncertainty, Calibration & Conformal Prediction",
+    "category": "ai-ml",
+    "why_next": "Your RAG system returns answers with no confidence signal. Calibrated uncertainty \u2014 semantic entropy, conformal prediction intervals, logit-based confidence \u2014 lets you route uncertain queries to fallbacks, flag for human review, or escalate to a larger model.",
+    "difficulty": "advanced",
+    "estimated_minutes": 75,
+    "concepts": [
+      "semantic entropy as uncertainty measure",
+      "conformal prediction for LLM outputs",
+      "logit-based calibration & temperature scaling",
+      "abstention triggers & escalation routing",
+      "calibration metrics: ECE, reliability diagrams"
+    ],
+    "prerequisites": [
+      "transformer architecture",
+      "RAG",
+      "probability basics"
+    ]
+  },
+  {
+    "id": 34,
+    "slug": "distributed-tracing-observability",
+    "title": "Observability: Distributed Tracing, Metrics & Logs with OpenTelemetry",
+    "category": "system-design",
+    "why_next": "A distributed system you can't observe is one you can't operate. OpenTelemetry traces/spans, context propagation across service boundaries, RED/USE metrics, and correlating logs-metrics-traces are what make incidents debuggable.",
+    "difficulty": "advanced",
+    "estimated_minutes": 75,
+    "concepts": [
+      "traces, spans & context propagation",
+      "OpenTelemetry SDK & collector pipeline",
+      "RED & USE method metrics",
+      "exemplars & log-trace correlation",
+      "sampling strategies (head vs tail)"
+    ],
+    "prerequisites": [
+      "microservices",
+      "FastAPI",
+      "distributed systems basics"
+    ]
+  },
+  {
+    "id": 35,
+    "slug": "constitutional-ai-rlaif",
+    "title": "Constitutional AI & RLAIF: Scalable Alignment Pipelines",
+    "category": "ai-ml",
+    "why_next": "Constitutional AI and RLAIF remove the human labeler bottleneck from alignment. Understanding how AI-generated preference data and principle-guided critique chains work lets you design alignment pipelines for domain-specific models.",
+    "difficulty": "advanced",
+    "estimated_minutes": 75,
+    "concepts": [
+      "constitutional principles & critique chains",
+      "red-team \u2192 revision loop",
+      "AI-generated preference pairs (RLAIF)",
+      "CAI vs RLHF quality tradeoffs",
+      "principle selection & conflict resolution"
+    ],
+    "prerequisites": [
+      "RLHF/DPO",
+      "synthetic data generation",
+      "LoRA fine-tuning"
+    ]
+  },
+  {
+    "id": 36,
+    "slug": "api-gateway-bff-design",
+    "title": "API Gateway & Backend-for-Frontend Design",
+    "category": "system-design",
+    "why_next": "As services multiply, clients shouldn't talk to each one directly. An API gateway centralizes auth, routing, rate limiting, and aggregation; the BFF pattern tailors the surface per client \u2014 the seam where cross-cutting concerns live.",
+    "difficulty": "advanced",
+    "estimated_minutes": 75,
+    "concepts": [
+      "gateway responsibilities: auth, routing, aggregation",
+      "backend-for-frontend per client type",
+      "request aggregation & response composition",
+      "edge auth (JWT/OAuth2) & token exchange",
+      "gateway as a single point of failure & mitigation"
+    ],
+    "prerequisites": [
+      "REST API design",
+      "circuit breakers",
+      "rate limiting"
+    ]
+  },
+  {
+    "id": 37,
+    "slug": "pre-training-data-curation",
+    "title": "Pre-Training Data Curation: Quality Signals, Dedup & Domain Mix",
+    "category": "ai-ml",
+    "why_next": "You fine-tune on top of pre-trained models but base quality is set by pre-training data. Understanding the signals (perplexity, reward scoring, domain mix) that drive base quality helps you choose and evaluate foundation models better.",
+    "difficulty": "advanced",
+    "estimated_minutes": 75,
+    "concepts": [
+      "web crawl quality filtering (CCNet, RefinedWeb)",
+      "global dedup with MinHash at billion-doc scale",
+      "domain mixture ablations (The Pile, SlimPajama)",
+      "data-to-parameter ratio effects",
+      "contamination detection for downstream benchmarks"
+    ],
+    "prerequisites": [
+      "scaling laws",
+      "synthetic data generation",
+      "tokenization basics"
+    ]
+  },
+  {
+    "id": 38,
+    "slug": "microservices-decomposition-ddd",
+    "title": "Microservices Decomposition with DDD Bounded Contexts",
+    "category": "system-design",
+    "why_next": "Splitting a monolith wrong creates a distributed monolith \u2014 worse than what you started with. DDD bounded contexts, aggregate boundaries, inter-service contracts, and the data-ownership rule guide where to actually draw service lines.",
+    "difficulty": "advanced",
+    "estimated_minutes": 90,
+    "concepts": [
+      "bounded contexts & context mapping",
+      "aggregate boundaries & data ownership",
+      "synchronous vs async inter-service communication",
+      "contract testing & consumer-driven contracts",
+      "distributed monolith anti-patterns"
+    ],
+    "prerequisites": [
+      "LLD design patterns",
+      "Kafka",
+      "REST API design"
+    ]
+  },
+  {
+    "id": 39,
+    "slug": "embedding-eval-retrieval-metrics",
+    "title": "Embedding & Retrieval Evaluation: nDCG, MRR & Calibration",
+    "category": "ai-ml",
+    "why_next": "You ship retrieval but measure it informally. The math of nDCG, MRR, Recall@K, plus building gold sets and detecting embedding drift, turns retrieval tuning from guesswork into a measurable optimization loop.",
+    "difficulty": "advanced",
+    "estimated_minutes": 75,
+    "concepts": [
+      "nDCG, MRR, Recall@K, MAP derivations",
+      "gold-label set construction & annotation",
+      "hard-negative mining for eval sets",
+      "embedding drift detection over time",
+      "offline metric vs online quality correlation"
+    ],
+    "prerequisites": [
+      "embedding models",
+      "cross-encoder reranking",
+      "statistics basics"
+    ]
+  },
+  {
+    "id": 40,
+    "slug": "zero-downtime-deployments",
+    "title": "Zero-Downtime Deployments: Blue-Green, Canary & Rolling",
+    "category": "system-design",
+    "why_next": "Shipping without dropping requests requires deliberate traffic management. Blue-green swaps, canary with progressive rollout, rolling updates, plus the hard part \u2014 backward-compatible schema migrations and feature flags \u2014 are how mature teams deploy continuously.",
+    "difficulty": "advanced",
+    "estimated_minutes": 75,
+    "concepts": [
+      "blue-green vs rolling vs canary",
+      "progressive delivery & automated rollback",
+      "expand-contract (backward-compatible) DB migrations",
+      "feature flags & dark launches",
+      "connection draining & graceful shutdown"
+    ],
+    "prerequisites": [
+      "Docker",
+      "REST API design",
+      "database transactions"
+    ]
+  },
+  {
+    "id": 41,
+    "slug": "flashattention-internals",
+    "title": "FlashAttention 2/3 Internals & IO-Aware Tiling",
+    "category": "ai-ml",
+    "why_next": "You use FlashAttention as a black box. Understanding online softmax, SRAM tiling, and FA3's warp specialization is the prerequisite for writing your own fused kernels and reasoning about memory-bound bottlenecks.",
+    "difficulty": "expert",
+    "estimated_minutes": 105,
+    "concepts": [
+      "online softmax / running max-sum",
+      "SRAM tiling & HBM recomputation",
+      "memory hierarchy (HBM vs SRAM)",
+      "FA3 warp specialization (Hopper)",
+      "backward pass recomputation tradeoff"
+    ],
+    "prerequisites": [
+      "attention mechanism",
+      "GPU memory model",
+      "softmax numerics"
+    ]
+  },
+  {
+    "id": 42,
+    "slug": "kubernetes-scheduling-autoscaling",
+    "title": "Kubernetes: Scheduling, Resource Limits & HPA/VPA",
+    "category": "system-design",
+    "why_next": "Running services on Kubernetes well means understanding the scheduler. Requests vs limits, QoS classes, affinity/taints, and HPA/VPA/cluster-autoscaler decide whether your pods get placed, throttled, or OOM-killed under load.",
+    "difficulty": "advanced",
+    "estimated_minutes": 90,
+    "concepts": [
+      "scheduler: predicates, scoring, affinity & taints",
+      "requests vs limits & QoS classes (BestEffort/Burstable/Guaranteed)",
+      "CPU throttling & OOM-kill mechanics",
+      "HPA, VPA & cluster autoscaler interplay",
+      "PodDisruptionBudgets & graceful eviction"
+    ],
+    "prerequisites": [
+      "Docker",
+      "zero-downtime deployments",
+      "distributed systems basics"
+    ]
+  },
+  {
+    "id": 43,
+    "slug": "attention-variants-gqa-mla",
+    "title": "Attention Variants: GQA, MQA & Multi-Head Latent Attention",
+    "category": "ai-ml",
+    "why_next": "These variants directly shrink your KV cache. GQA/MQA key-value grouping and DeepSeek's MLA latent compression are the architectural counterpart to your cache management work \u2014 knowing the math lets you calculate actual memory savings.",
+    "difficulty": "expert",
+    "estimated_minutes": 75,
+    "concepts": [
+      "MHA vs MQA vs GQA KV sharing math",
+      "MLA latent KV compression (DeepSeek)",
+      "KV cache size formula per variant",
+      "quality vs cache-size tradeoff curves",
+      "RoPE interaction with KV compression"
+    ],
+    "prerequisites": [
+      "attention mechanism",
+      "KV cache",
+      "FlashAttention internals"
+    ]
+  },
+  {
+    "id": 44,
+    "slug": "service-mesh-istio-envoy",
+    "title": "Service Mesh: Istio, Envoy & the Sidecar Pattern",
+    "category": "system-design",
+    "why_next": "Once you run many services, re-implementing mTLS, retries, and circuit breaking in each one is wasteful. A service mesh pushes these into a sidecar proxy at the infra layer \u2014 with its own latency, complexity, and failure-mode costs to weigh.",
+    "difficulty": "advanced",
+    "estimated_minutes": 75,
+    "concepts": [
+      "sidecar proxy (Envoy) data plane vs control plane",
+      "mTLS & zero-trust service identity",
+      "traffic shifting for canary & mirroring",
+      "mesh-level retries, timeouts & circuit breaking",
+      "sidecar latency/resource overhead & ambient mesh"
+    ],
+    "prerequisites": [
+      "Kubernetes scheduling",
+      "circuit breakers",
+      "distributed tracing"
+    ]
+  },
+  {
+    "id": 45,
+    "slug": "reasoning-models-process-rewards",
+    "title": "Reasoning Models: Long-CoT Scaling, MCTS & Process Reward Models",
+    "category": "ai-ml",
+    "why_next": "o1/R1-style models are the frontier of what you serve. Process vs outcome reward models, MCTS for trace generation, and why long CoT at inference trades compute for accuracy reshapes how you think about serving cost.",
+    "difficulty": "expert",
+    "estimated_minutes": 90,
+    "concepts": [
+      "outcome vs process reward models",
+      "MCTS for reasoning trace generation",
+      "best-of-N sampling vs learned verifier",
+      "chain-of-thought scaling laws",
+      "serving cost of long-CoT models vs dense models"
+    ],
+    "prerequisites": [
+      "RLHF/DPO",
+      "transformer architecture",
+      "vLLM serving"
+    ]
+  },
+  {
+    "id": 46,
+    "slug": "slo-sla-error-budgets",
+    "title": "SLO, SLA, Error Budgets & Capacity Planning",
+    "category": "system-design",
+    "why_next": "Reliability is an engineering target, not a vibe. Defining SLIs, deriving SLOs from user journeys, spending error budgets to balance velocity vs stability, and capacity planning from load tests turn 'is it healthy?' into a number.",
+    "difficulty": "advanced",
+    "estimated_minutes": 75,
+    "concepts": [
+      "SLI selection & SLO targets from user journeys",
+      "error budgets & burn-rate alerting",
+      "multi-window multi-burn-rate alerts",
+      "capacity planning & load testing (Little's Law)",
+      "graceful degradation & toil reduction"
+    ],
+    "prerequisites": [
+      "distributed tracing",
+      "circuit breakers",
+      "statistics basics"
+    ]
+  },
+  {
+    "id": 47,
+    "slug": "mechanistic-interpretability",
+    "title": "Mechanistic Interpretability: Circuits, Superposition & Activation Patching",
+    "category": "ai-ml",
+    "why_next": "As you build systems that depend on model behavior, understanding why models do what they do \u2014 induction heads, superposition of features, activation patching for causal tracing \u2014 lets you debug unexpected behaviors and reason about capability edges.",
+    "difficulty": "expert",
+    "estimated_minutes": 90,
+    "concepts": [
+      "induction heads & in-context learning circuits",
+      "superposition of features in residual stream",
+      "activation patching for causal tracing",
+      "sparse autoencoders for feature extraction",
+      "probing classifiers & linear representation hypothesis"
+    ],
+    "prerequisites": [
+      "transformer architecture",
+      "attention mechanism",
+      "PyTorch"
+    ]
+  },
+  {
+    "id": 48,
+    "slug": "caching-strategies-invalidation",
+    "title": "Caching Strategies & Invalidation at Scale",
+    "category": "system-design",
+    "why_next": "Caching is the easiest performance win and the easiest correctness footgun. Cache-aside vs write-through vs write-behind, TTL/stampede control, multi-tier caches, and the consistency model of each are what keep a hot path fast without serving stale data.",
+    "difficulty": "advanced",
+    "estimated_minutes": 75,
+    "concepts": [
+      "cache-aside vs read/write-through vs write-behind",
+      "cache stampede: locking, request coalescing, early refresh",
+      "TTL, TTI & negative caching",
+      "multi-tier (CDN \u2192 app \u2192 DB) cache hierarchy",
+      "invalidation: event-driven vs versioned keys"
+    ],
+    "prerequisites": [
+      "Redis internals",
+      "database replication",
+      "CAP theorem"
+    ]
+  },
+  {
+    "id": 49,
+    "slug": "knowledge-editing-rome-memit",
+    "title": "Knowledge Editing: ROME, MEMIT & Locate-and-Edit",
+    "category": "ai-ml",
+    "why_next": "When a fact in your model changes, you choose between full re-train and surgical knowledge editing. ROME/MEMIT locate the factual association in MLP layers and update it directly \u2014 understanding this tells you when editing works and when it breaks.",
+    "difficulty": "expert",
+    "estimated_minutes": 75,
+    "concepts": [
+      "causal tracing to locate factual associations",
+      "rank-one model editing (ROME)",
+      "MEMIT mass editing via least-squares",
+      "editing locality & generalization failure modes",
+      "when editing beats fine-tuning (and when it doesn't)"
+    ],
+    "prerequisites": [
+      "mechanistic interpretability",
+      "transformer architecture",
+      "LoRA fine-tuning"
+    ]
+  },
+  {
+    "id": 50,
+    "slug": "message-queue-delivery-semantics",
+    "title": "Message Queues: Delivery Semantics, DLQs & Idempotency",
+    "category": "system-design",
+    "why_next": "Queues glue async systems together but at-least-once delivery means duplicates are guaranteed. Dead-letter queues, visibility timeouts, idempotent consumers, ordering guarantees, and poison-message handling are what make async reliable.",
+    "difficulty": "advanced",
+    "estimated_minutes": 75,
+    "concepts": [
+      "at-most / at-least / exactly-once semantics",
+      "visibility timeout & redelivery",
+      "dead-letter queues & poison messages",
+      "idempotent consumers & dedup stores",
+      "FIFO vs ordering tradeoffs (SQS/RabbitMQ/Kafka)"
+    ],
+    "prerequisites": [
+      "Kafka",
+      "Redis internals",
+      "saga pattern"
+    ]
+  },
+  {
+    "id": 51,
+    "slug": "structured-state-space-models",
+    "title": "State-Space Models: Mamba, Selective Scan & Hybrid Architectures",
+    "category": "ai-ml",
+    "why_next": "Mamba-2 and hybrid Mamba-transformer models are entering production. Linear-time context scaling changes your serving math: O(1) per-token inference, no KV cache to manage, but fundamentally different throughput/latency curves than transformers.",
+    "difficulty": "expert",
+    "estimated_minutes": 90,
+    "concepts": [
+      "SSM recurrence & convolution duality",
+      "selective scan (input-dependent state matrix)",
+      "hardware-aware parallel scan (CUDA)",
+      "linear vs quadratic context scaling tradeoff",
+      "hybrid SSM-transformer serving characteristics"
+    ],
+    "prerequisites": [
+      "attention mechanism",
+      "FlashAttention internals",
+      "GPU memory model"
+    ]
+  },
+  {
+    "id": 52,
+    "slug": "hld-design-twitter-feed",
+    "title": "HLD: Design a Twitter/News-Feed System",
+    "category": "system-design",
+    "why_next": "The canonical scale-system interview and a real design problem: fan-out-on-write vs fan-out-on-read, the celebrity hot-key problem, timeline caching, and how to estimate QPS, storage, and bandwidth from first principles.",
+    "difficulty": "advanced",
+    "estimated_minutes": 90,
+    "concepts": [
+      "fan-out-on-write vs fan-out-on-read (hybrid)",
+      "celebrity / hot-key fan-out problem",
+      "timeline cache & precomputation",
+      "back-of-envelope capacity estimation",
+      "read-heavy vs write-heavy tradeoffs"
+    ],
+    "prerequisites": [
+      "caching strategies",
+      "database sharding",
+      "consistent hashing"
+    ]
+  },
+  {
+    "id": 53,
+    "slug": "tensor-pipeline-parallelism-training",
+    "title": "Tensor, Pipeline & Sequence Parallelism",
+    "category": "ai-ml",
+    "why_next": "Single-GPU inference is solved. Multi-GPU/multi-node serving requires understanding how Megatron-style TP splits matmuls across GPUs and how PP schedules micro-batches \u2014 essential for models that don't fit on one GPU.",
+    "difficulty": "expert",
+    "estimated_minutes": 105,
+    "concepts": [
+      "column/row parallel linear layers",
+      "all-reduce vs all-gather placement",
+      "1F1B pipeline schedule & bubble fraction",
+      "sequence parallelism for activations",
+      "TP communication cost model"
+    ],
+    "prerequisites": [
+      "transformer architecture",
+      "vLLM deployment",
+      "collective communication basics"
+    ]
+  },
+  {
+    "id": 54,
+    "slug": "consensus-raft-leader-election",
+    "title": "Consensus: Raft, Leader Election & Replicated Logs",
+    "category": "system-design",
+    "why_next": "Behind every strongly-consistent distributed system is a consensus protocol. Raft's leader election, log replication, and commit rules \u2014 plus why split-brain happens and how quorums prevent it \u2014 are the foundation of etcd, Consul, and Kafka's controller.",
+    "difficulty": "expert",
+    "estimated_minutes": 90,
+    "concepts": [
+      "Raft leader election & terms",
+      "log replication & commit index",
+      "quorum & majority safety argument",
+      "membership changes & joint consensus",
+      "Raft vs Paxos vs ZAB tradeoffs"
+    ],
+    "prerequisites": [
+      "CAP theorem",
+      "database replication",
+      "distributed systems basics"
+    ]
+  },
+  {
+    "id": 55,
+    "slug": "distributed-training-fsdp",
+    "title": "Distributed Training: FSDP, ZeRO & Gradient Sharding",
+    "category": "ai-ml",
+    "why_next": "You fine-tune with LoRA on a single GPU. FSDP/ZeRO sharding (params, gradients, optimizer state) unlocks full fine-tunes and larger models \u2014 the training-side analog of your serving parallelism work.",
+    "difficulty": "expert",
+    "estimated_minutes": 105,
+    "concepts": [
+      "ZeRO stages 1/2/3 memory savings",
+      "FSDP wrapping & sharding strategy",
+      "gradient checkpointing",
+      "mixed precision & loss scaling",
+      "communication-computation overlap"
+    ],
+    "prerequisites": [
+      "PyTorch",
+      "LoRA fine-tuning",
+      "tensor parallelism"
+    ]
+  },
+  {
+    "id": 56,
+    "slug": "hld-design-uber-geospatial",
+    "title": "HLD: Design Uber/Ride-Matching with Geospatial Indexing",
+    "category": "system-design",
+    "why_next": "A different scaling axis \u2014 real-time geospatial. Quadtrees/geohash/H3 indexing, proximity matching at scale, dispatch consistency, and surge pricing pipelines stress location-aware sharding and low-latency matching in ways feed systems don't.",
+    "difficulty": "expert",
+    "estimated_minutes": 90,
+    "concepts": [
+      "geohash / quadtree / H3 spatial indexing",
+      "proximity search & driver-rider matching",
+      "location update ingestion at high write rate",
+      "dispatch consistency & double-booking prevention",
+      "surge pricing as a streaming aggregation"
+    ],
+    "prerequisites": [
+      "HLD Twitter feed",
+      "message queues",
+      "database sharding"
+    ]
+  },
+  {
+    "id": 57,
+    "slug": "gpu-profiling-roofline",
+    "title": "GPU Profiling & Roofline Analysis",
+    "category": "ai-ml",
+    "why_next": "You optimize inference by intuition. Nsight/torch profiler, roofline modeling (arithmetic intensity vs memory bandwidth), and identifying memory-bound vs compute-bound ops give you a rigorous methodology instead of guesswork.",
+    "difficulty": "expert",
+    "estimated_minutes": 90,
+    "concepts": [
+      "roofline model & arithmetic intensity",
+      "memory-bound vs compute-bound classification",
+      "Nsight Systems/Compute trace reading",
+      "CUDA graphs & kernel launch overhead",
+      "torch.compile & graph capture modes"
+    ],
+    "prerequisites": [
+      "GPU memory model",
+      "PyTorch",
+      "inference engines"
+    ]
+  },
+  {
+    "id": 58,
+    "slug": "hld-design-youtube-video",
+    "title": "HLD: Design YouTube/Video Streaming & CDN",
+    "category": "system-design",
+    "why_next": "Storage- and bandwidth-dominated design. Chunked upload, transcoding pipelines, adaptive bitrate (HLS/DASH), CDN edge caching, and the metadata vs blob split push you to reason about petabyte-scale storage and global delivery.",
+    "difficulty": "expert",
+    "estimated_minutes": 90,
+    "concepts": [
+      "chunked/resumable upload & transcoding pipeline",
+      "adaptive bitrate streaming (HLS/DASH)",
+      "CDN edge caching & cache hierarchy",
+      "metadata store vs blob store split",
+      "view-count counting at scale (approximate counters)"
+    ],
+    "prerequisites": [
+      "HLD Twitter feed",
+      "caching strategies",
+      "message queues"
+    ]
+  },
+  {
+    "id": 59,
+    "slug": "cuda-triton-fused-kernels",
+    "title": "Writing Fused Kernels with Triton",
+    "category": "ai-ml",
+    "why_next": "Triton lets you write fused ops (fused RMSNorm+linear, fused dequant+GEMM) without raw CUDA \u2014 extending your inference engine into custom-kernel territory and closing the last performance gap vs hand-tuned CUDA.",
+    "difficulty": "expert",
+    "estimated_minutes": 120,
+    "concepts": [
+      "Triton program model (blocks/pids/offsets)",
+      "memory coalescing & masking",
+      "autotuning config search",
+      "fused dequant+GEMM implementation",
+      "occupancy & register pressure"
+    ],
+    "prerequisites": [
+      "GPU memory model",
+      "FlashAttention internals",
+      "quantization deep dive"
+    ]
+  },
+  {
+    "id": 60,
+    "slug": "capstone-design-distributed-backend",
+    "title": "Capstone: Design a Production-Grade Distributed Backend",
+    "category": "system-design",
+    "why_next": "The synthesis of the whole track. Design a complete multi-service backend end to end: API gateway, sharded data layer, event backbone, consistency model, deployment strategy, and SLO-driven observability \u2014 every decision justified with numbers and failure analysis.",
+    "difficulty": "expert",
+    "estimated_minutes": 120,
+    "concepts": [
+      "end-to-end architecture & component boundaries",
+      "consistency & data-ownership decisions per service",
+      "failure mode analysis (FMEA) & blast radius",
+      "SLO derivation & capacity planning under load",
+      "evolution path from monolith MVP to scale"
+    ],
+    "prerequisites": [
+      "microservices-decomposition-ddd",
+      "api-gateway-bff-design",
+      "database-sharding-replication",
+      "slo-sla-error-budgets",
+      "distributed-tracing-observability"
+    ]
+  }
+]
