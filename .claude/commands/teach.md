@@ -2,7 +2,7 @@
 
 Generate and deliver a deep, expert-level AI/ML lesson tailored to Sumanth's background, track progress, and launch the Streamlit viewer.
 
-**Usage:** `/teach` (picks next topic) or `/teach [slug]` (e.g. `/teach speculative-decoding`)
+**Usage:** `/teach` (picks next topic) or `/teach [topic]` (e.g. `/teach speculative decoding internals`)
 
 ---
 
@@ -71,7 +71,7 @@ If the above condition is true:
 
 ### Step 2b — Review Queue Check
 
-Read `completed[]` from `memory.json`. Find any entry where `next_review_date <= today's date` (today = 2026-06-20).
+Read `completed[]` from `memory.json`. Find any entry where `next_review_date <= today's date` (today = 2026-06-21).
 
 If any are due:
 - Select the one with the **earliest** `next_review_date`
@@ -104,21 +104,94 @@ If any are due:
   ```
 - **Stop here. Do NOT start a new lesson today.** Reviews take priority over new content — same as Anki.
 
-### Step 2c — New Topic Selection
+### Step 2c — New Topic Selection (Dynamic)
 
-**If the user invoked `/teach [slug]`:**
-- Use that slug as the target topic
-- Read `.teach/curriculum.json` to find the matching entry
-- If the slug already appears in `completed[].slug`, warn: "⚠️ You've already completed '[title]'. Treating this as a refresher run — progress will not be double-counted."
-- Proceed with the topic regardless
+**If the user invoked `/teach [topic]`:**
+- Use that text as-is (freeform — any topic the user wants to learn)
+- Set: title = the user topic text, slug = kebab-case version of it, domain = "custom", concepts = [], estimated_minutes = 75, difficulty = "advanced"
+- Output: `📖 Custom topic: [topic]. Generating lesson...`
+- Skip the agent selection below. Jump to Step 3.
 
-**If no slug provided:**
-- Read `.teach/curriculum.json`
-- Find the first topic whose `slug` does NOT appear in any `completed[].slug` entry
-- If all topics are complete: congratulate Sumanth and ask if he wants to restart the curriculum from the beginning
-- Check `last_session_date`: if it equals today's date (YYYY-MM-DD), ask: "You already had a session today. Start another? (y/n)" and wait for response before continuing
+**If no topic provided:**
 
-**Fast-path check (run after slug is determined, before Step 3):**
+Build context strings from memory.json:
+```python
+completed_list = "\n".join([
+    f"- {e['title']} ({e.get('domain', '?')})"
+    for e in memory['completed']
+]) or "None yet"
+n_completed = len(memory['completed'])
+weak_areas_list = ", ".join([
+    (w['phrase'] if isinstance(w, dict) else w)
+    for w in memory.get('weak_areas', [])
+    if not (isinstance(w, dict) and w.get('retired'))
+]) or "None"
+```
+
+Spawn an Agent with **subagent_type `voltagent-data-ai:ai-engineer`** using this exact prompt (substitute the [PLACEHOLDERS]):
+
+```
+You are an AI engineer curriculum designer selecting today's learning topic for Sumanth G.
+
+LEARNER: AI Backend Engineer, uCube.ai
+TODAY: [TODAY_DATE]
+COMPLETED ([N_COMPLETED] topics so far):
+[COMPLETED_LIST]
+
+WEAK AREAS (reinforce naturally if possible):
+[WEAK_AREAS_LIST]
+
+KNOWS WELL — NEVER RE-TEACH:
+- PagedAttention + continuous batching (built from scratch)
+- Hybrid RAG (Neo4j + Weaviate, cross-encoder reranking, semantic caching)
+- LoRA fine-tuning, multi-agent systems (LangGraph), vLLM/SGLang deployments
+- FastAPI + AsyncIO + Redis + PyTorch + Docker
+
+FULL AI ENGINEER KNOWLEDGE DOMAIN — cover ALL of these over time:
+- LLM Architecture: attention variants (GQA/MLA/MHA), quantization (GPTQ/AWQ/FP8/GGUF), speculative decoding (Medusa/EAGLE/SpecInfer), MoE routing & capacity factor, SSMs/Mamba selective scan, FlashAttention 2/3 tiling, positional encodings (RoPE/YaRN/ALiBi), pre-training objectives, tokenization internals (BPE/unigram/byte-level)
+- Inference & Serving: tensor/pipeline/sequence parallelism, KV cache eviction & quantization (KIVI/H2O), continuous batching internals, prefix caching, disaggregated prefill & chunked prefill (vLLM v2), Triton kernel writing, GPU profiling (roofline model, Nsight), torch.compile & CUDA graphs
+- Training & Alignment: RLHF, DPO, RLAIF, Constitutional AI, FSDP/ZeRO (stages 1/2/3), gradient checkpointing, scaling laws (Chinchilla/Kaplan), pre-training data curation (dedup, quality filtering), synthetic data & knowledge distillation, model merging (TIES/DARE/SLERP/task arithmetic), PEFT variants (QLoRA/DoRA/LoRA-FA)
+- Agentic Systems: agent architectures (ReAct/Reflexion/Plan-Execute/LATS/Voyager), tool use & function calling patterns, agent memory (episodic/semantic/procedural/external), multi-agent orchestration & communication protocols, agent evaluation & benchmarking, LLM-as-judge, planning under uncertainty, agent reliability & failure modes
+- ML/DS & Evaluation: evaluation metrics (BLEU/ROUGE/BERTScore/human eval/G-Eval), calibration & uncertainty (conformal prediction, semantic entropy, temperature scaling), mechanistic interpretability (induction heads, superposition, SAEs, activation patching), contrastive learning & embedding training, retrieval eval (nDCG/MRR/Recall@K), statistical significance testing
+- MLOps: experiment tracking (MLflow/W&B), model versioning & registry, A/B testing for LLMs, shadow deployments, data/model drift detection, feedback loop design, CI/CD for ML pipelines, feature stores for ML
+- Backend Systems: PostgreSQL query planner & MVCC & VACUUM, Redis internals (RDB/AOF/clustering/Streams/Lua), Kafka (partitioning/consumer groups/exactly-once), rate limiting algorithms (token bucket/sliding window), circuit breakers & resilience patterns, gRPC & protobuf streaming, REST API design & versioning, database transactions & isolation levels (MVCC/SSI/write skew), caching strategies & invalidation at scale
+- System Design / HLD: distributed consensus (Raft/Paxos), consistent hashing & virtual nodes, CAP/PACELC & consistency models, event sourcing/CQRS, saga pattern & distributed transactions, microservices/DDD bounded contexts, Kubernetes scheduling & HPA/VPA, service mesh (Istio/Envoy), observability (OpenTelemetry/traces/RED metrics), SLOs & error budgets, HLD case studies (Twitter feed, Uber geo, YouTube CDN)
+- Cross-domain (HIGH VALUE — pick 1 in 5): vector DB internals (HNSW/IVF-PQ indexing), LLM serving system design end-to-end, streaming inference pipelines, AI feature stores, online learning systems, LLM eval infrastructure at scale, semantic caching architectures, multi-model deployment orchestration, speculative decoding meets continuous batching
+
+SELECTION RULES:
+1. NEVER repeat a completed topic (check the list)
+2. Balance domains — avoid same domain 3× in a row (check last 3 completed domains)
+3. Build on what he knows — reference his stack naturally
+4. Difficulty: <10 done → intermediate, 10–25 → advanced, >25 → expert
+5. Cross-domain topics: pick roughly 1 in 5 sessions — they teach the most
+6. Be specific — not "Attention Mechanisms" but "GQA vs MLA: KV Cache Math and DeepSeek Production Tradeoffs"
+
+Return ONLY valid JSON, no markdown fences:
+{
+  "title": "Specific descriptive title",
+  "slug": "kebab-case-unique-slug",
+  "domain": "llm-arch|inference|training|agentic|ml-ds|mlops|backend|system-design|cross-domain",
+  "concepts": ["specific concept 1", "concept 2", "concept 3", "concept 4", "concept 5"],
+  "why_next": "1-2 direct sentences: why this fills a gap for him right now",
+  "difficulty": "intermediate|advanced|expert",
+  "estimated_minutes": 75
+}
+```
+
+Substitute: [TODAY_DATE] = today's date, [N_COMPLETED] = n_completed, [COMPLETED_LIST] = completed_list, [WEAK_AREAS_LIST] = weak_areas_list
+
+Parse the agent's JSON response. If parse fails, fallback:
+- title = "Disaggregated Prefill & Chunked Prefill: vLLM v2 Architecture"
+- slug = "disaggregated-prefill-chunked-vllm-v2"
+- domain = "inference"
+- concepts = ["prefill vs decode disaggregation", "chunked prefill scheduler", "KV cache transfer across nodes", "vLLM v2 architecture changes", "latency vs throughput tradeoffs"]
+- why_next = "Direct extension of your continuous batching work."
+- difficulty = "advanced"
+- estimated_minutes = 75
+
+Output: `🤖 Today's topic: [title]`
+
+**Fast-path check (run after topic is determined, before Step 3):**
 
 Check if `/Users/sumanthg/Documents/teach-me/.teach/next_lesson.json` exists:
 - Read it and check `meta.slug`
@@ -143,10 +216,10 @@ Output a short pre-flight summary, then immediately proceed to Step 4 — no con
 NEXT UP: [Topic Title]
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-Why this for you: [1-2 sentences specific to his stack/background — pull from curriculum.json `why_next` if available]
+Why this for you: [from agent response .why_next]
 
-Difficulty: [difficulty]  ·  ~[estimated_minutes] min
-Concepts: [comma-separated list from curriculum concepts[]]
+Difficulty: [from agent response .difficulty]  ·  ~[from agent response .estimated_minutes] min
+Concepts: [from agent response .concepts joined as comma-separated list]
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
 
@@ -483,6 +556,7 @@ Read the current `.teach/memory.json`, then write back with these changes:
    {
      "slug": "[topic slug]",
      "title": "[topic title]",
+     "domain": "[from topic selection agent response]",
      "date": "[today YYYY-MM-DD]",
      "quiz_score_pct": [score as decimal, e.g. 0.75, or null if skipped],
      "time_spent_minutes": [estimate from session start to now],
@@ -539,7 +613,7 @@ Weak areas flagged: "[their answer]"
 Next review of this topic: [next_review_date]
 
 Tomorrow's suggestion: [next-topic title]
-→ [why_next from curriculum.json for that topic]
+→ [why_next from agent selection for that topic]
 
 See you tomorrow! 🧠
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -551,17 +625,16 @@ See you tomorrow! 🧠
 
 After the completion output, pre-generate tomorrow's lesson for instant startup.
 
-1. From `curriculum.json`, find the first topic AFTER the just-completed one that is NOT in `completed[]`
-2. If none: skip entirely (all done)
-3. Generate using the SAME parallel agent structure as Steps 4a-4d, but:
+1. Build updated context: include the just-completed topic in completed_list, increment n_completed
+2. Spawn a **voltagent-data-ai:ai-engineer** Agent with the same topic-selection prompt from Step 2c (with updated context)
+3. Parse the returned JSON to get the next topic {title, slug, domain, concepts, why_next, difficulty, estimated_minutes}
+4. If agent fails or parse fails: output `⚠️  Pre-generation skipped — next topic will be selected fresh on next /teach` and stop
+5. If successful: Generate the full lesson using SAME parallel agent structure as Steps 4a–4d:
    - Write Phase 1 to a temp variable (do NOT overwrite current_lesson.json)
-   - After all 5+2 agents complete, assemble the FULL lesson JSON (both phases merged)
+   - After all agents complete, assemble the FULL lesson JSON (both phases merged)
    - Set `_generation_status: "complete"`
    - Write to `/Users/sumanthg/Documents/teach-me/.teach/next_lesson.json`
-4. Output:
-```
-⚡ Next lesson pre-generated: [Next Topic Title] — instant on next /teach
-```
+6. Output: `⚡ Next lesson pre-generated: [Next Topic Title] — instant on next /teach`
 
 ---
 
@@ -569,7 +642,6 @@ After the completion output, pre-generate tomorrow's lesson for instant startup.
 
 | Problem | Response |
 |---|---|
-| `.teach/curriculum.json` missing | "curriculum.json not found. Run the setup script or check your installation at `/Users/sumanthg/Documents/teach-me/.teach/`." |
 | `.teach/memory.json` missing | Create it fresh with the default schema (streak: 0, completed: [], in_progress: null, last_session_date: null, weak_areas: []). |
 | Streamlit not installed | "Run: `pip install -r /Users/sumanthg/Documents/teach-me/app/requirements.txt`" |
 | Port 8501 already in use | "Port 8501 is busy — Streamlit may already be running. Try: `open http://localhost:8501`" |
@@ -579,16 +651,16 @@ After the completion output, pre-generate tomorrow's lesson for instant startup.
 
 ## Args Reference
 
-The skill accepts one optional positional argument: a topic slug from `curriculum.json`.
+The skill accepts one optional positional argument: any topic description (freeform — not from a fixed list).
 
 | Invocation | Behavior |
 |---|---|
-| `/teach` | Auto-selects the next incomplete topic |
-| `/teach speculative-decoding` | Forces the speculative-decoding lesson |
-| `/teach moe-routing-serving` | Forces the MoE routing lesson |
-| `/teach flashattention-internals` | Forces the FlashAttention lesson |
+| `/teach` | ai-engineer agent selects today's optimal topic based on your history |
+| `/teach speculative decoding internals` | Generates a lesson on that exact topic |
+| `/teach gRPC for LLM serving` | Generates a cross-domain lesson on that topic |
+| `/teach [any topic]` | Generates a lesson on any topic you specify |
 
-Any slug present in `curriculum.json` is valid. Completed slugs proceed in refresher mode with a warning.
+When a topic is provided, the ai-engineer selection is skipped and a lesson is generated directly.
 
 ---
 
@@ -596,11 +668,11 @@ Any slug present in `curriculum.json` is valid. Completed slugs proceed in refre
 
 ```json
 {
-  "curriculum_version": 2,
   "completed": [
     {
       "slug": "transformer-micro-architecture",
       "title": "...",
+      "domain": "llm-arch",
       "date": "2026-06-20",
       "quiz_score_pct": 0.75,
       "time_spent_minutes": 45,

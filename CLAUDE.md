@@ -9,7 +9,7 @@ A personalized daily teaching tool for Sumanth (AI Backend Engineer, uCube.ai).
 /teach
 
 # Or pick a specific topic:
-/teach speculative-decoding
+/teach chunked prefill internals
 
 # After session, log it:
 # Tell Claude "done" in the same conversation
@@ -21,7 +21,6 @@ A personalized daily teaching tool for Sumanth (AI Backend Engineer, uCube.ai).
 teach-me/
 ├── .claude/commands/teach.md   # The /teach skill
 ├── .teach/
-│   ├── curriculum.json         # 30 ordered topics (LLM arch / backend / system design)
 │   ├── memory.json             # Session progress, streak, weak areas
 │   └── current_lesson.json    # Generated lesson (gitignored, regenerated each run)
 ├── app/
@@ -36,7 +35,7 @@ teach-me/
 When invoked, Claude:
 
 1. Checks memory.json for completed topics (never repeats)
-2. Selects next topic from curriculum (or uses your override)
+2. Spawns a `voltagent-data-ai:ai-engineer` agent to select today's optimal topic based on memory (or uses your override)
 3. Generates a full lesson JSON directly
 4. Launches Streamlit at http://localhost:8501
 5. After you say "done", logs the session with quiz scores and weak areas
@@ -48,15 +47,25 @@ Progress is tracked in `.teach/memory.json`. It records:
 - Completed topics (with date, quiz score, weak areas)
 - Current streak
 - Weak areas to reinforce in future sessions
+- Domain of each completed topic (for balance tracking)
 
-## Curriculum
+## Dynamic Curriculum
 
-60 topics across two groups, interleaved so every other day alternates AI ↔ Backend:
+No fixed topic list. Each `/teach` invocation spawns a `voltagent-data-ai:ai-engineer` subagent that reads your session memory and selects today's optimal topic.
 
-- **AI/ML (30 topics)**: LLM architecture internals, quantization, speculative decoding, FlashAttention, MoE, GQA/MLA, RLHF/DPO, PEFT, scaling laws, reasoning models, mech-interp, Mamba/SSM, GPU profiling, Triton kernels, etc.
-- **Backend + System Design (30 topics)**: FastAPI internals, PostgreSQL/Redis internals, gRPC, Kafka, consistent hashing, CAP theorem, event sourcing/CQRS, saga pattern, CRDT, Kubernetes, service mesh, distributed tracing, HLD (Twitter/Uber/YouTube), LLD/SOLID, etc.
+**Full AI engineer domain coverage** — rotates across all of these:
 
-Both groups sorted intermediate → advanced → expert; prerequisites within each group are respected.
+- **LLM Architecture** — attention variants (GQA/MLA), quantization (GPTQ/AWQ/FP8), speculative decoding, MoE, Mamba/SSMs, FlashAttention internals, positional encodings, tokenization
+- **Inference & Serving** — tensor/pipeline parallelism, KV cache eviction & quantization, prefix caching, disaggregated prefill, Triton/CUDA kernels, GPU profiling, roofline model
+- **Training & Alignment** — RLHF, DPO, RLAIF, FSDP/ZeRO distributed training, scaling laws, data curation, knowledge distillation, model merging
+- **Agentic Systems** — agent architectures (ReAct/Reflexion/LATS), tool use patterns, agent memory, multi-agent orchestration, agent evaluation, planning under uncertainty
+- **ML/DS & Evaluation** — calibration & uncertainty, mechanistic interpretability, embedding evaluation, retrieval metrics, statistical testing
+- **MLOps** — experiment tracking, model versioning, A/B testing for LLMs, drift detection, CI/CD for ML, feature stores
+- **Backend Systems** — PostgreSQL internals, Redis clustering, Kafka, rate limiting, circuit breakers, gRPC, API design, caching strategies
+- **System Design / HLD** — Raft consensus, consistent hashing, CAP/PACELC, event sourcing/CQRS, saga pattern, microservices/DDD, Kubernetes, service mesh, observability, SLOs
+- **Cross-domain** (high value) — vector DB internals, LLM serving system design, streaming inference, AI feature stores, semantic caching architectures
+
+The agent balances domains, scales difficulty as completed count grows, and never repeats covered topics.
 
 ## Learner Profile
 
