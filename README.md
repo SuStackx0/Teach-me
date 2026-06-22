@@ -19,18 +19,27 @@ export ANTHROPIC_API_KEY=your_key
 
 ## Usage
 
-Open Claude Code in this directory, then:
+Start both servers first (two terminal tabs):
+
+```bash
+# Tab 1 — API backend
+cd app && uvicorn server:app --port 8001
+
+# Tab 2 — React dev server
+cd app/react-app && npm run dev
+```
+
+Then open Claude Code in this directory and run:
 
 ```bash
 /teach                        # AI picks today's optimal topic
 /teach chunked prefill        # force a specific topic
 ```
 
-That's it. The skill:
+The skill:
 1. Selects today's topic (ai-engineer agent reads your history, balances domains)
 2. Generates a full lesson with parallel agents (concepts, quiz, insights)
-3. Starts the FastAPI server and React app automatically
-4. Opens `http://localhost:5173` in your browser
+3. Opens `http://localhost:5173` in your browser
 
 Study the lesson, then come back to Claude Code and say **"done"** — your score, weak areas, and spaced repetition schedule are saved automatically.
 

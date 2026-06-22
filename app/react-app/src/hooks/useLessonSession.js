@@ -32,22 +32,40 @@ export function useLessonSession(url) {
   const [mqScores, setMqScores] = useState({})
   const pollRef = useRef(null)
 
-  const fetchLesson = useCallback(async () => {
+  const retryRef = useRef(null)
+
+  const fetchLesson = useCallback(async (attempt = 0) => {
+    const MAX = 12
     try {
       const res = await fetch(url)
-      if (!res.ok) { setError('Lesson not found.'); setLoading(false); return }
+      if (!res.ok) {
+        if (attempt < MAX) {
+          retryRef.current = setTimeout(() => fetchLesson(attempt + 1), 1200)
+          return
+        }
+        setError('Lesson not found. Run /teach in Claude Code then refresh.')
+        setLoading(false)
+        return
+      }
       const data = await res.json()
       setLesson(data)
       setLoading(false)
       const built = buildSections(data)
       setSections(prev => prev.length < built.length ? built : prev.length ? prev : built)
     } catch {
+      if (attempt < MAX) {
+        retryRef.current = setTimeout(() => fetchLesson(attempt + 1), 1200)
+        return
+      }
       setError('Cannot reach server. Is uvicorn running on port 8001?')
       setLoading(false)
     }
   }, [url])
 
-  useEffect(() => { fetchLesson() }, [fetchLesson])
+  useEffect(() => {
+    fetchLesson()
+    return () => clearTimeout(retryRef.current)
+  }, [fetchLesson])
 
   useEffect(() => {
     if (!lesson) return

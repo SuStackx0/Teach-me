@@ -14,6 +14,20 @@
   --code-bg:        #F0EFEB;
 }
 
+html.dark {
+  --bg:             #141414;
+  --surface:        #1E1E1E;
+  --border:         rgba(255,255,255,0.09);
+  --accent:         #4CA87A;
+  --success:        #4CA87A;
+  --warning:        #C9874A;
+  --error:          #D46060;
+  --text-primary:   #E8E6E0;
+  --text-secondary: #A8A49C;
+  --text-muted:     #606060;
+  --code-bg:        #252525;
+}
+
 html, body, #root {
   height: 100%;
   background: var(--bg);

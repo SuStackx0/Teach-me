@@ -76,18 +76,18 @@ If any are due:
   }
   ```
 - Update `memory.json`: set `in_progress` to `"review-[slug]"`
-- Start FastAPI server if not already running:
+- Start servers if not already running:
   ```bash
-  lsof -i :8001 | grep LISTEN || (cd /Users/sumanthg/Documents/teach-me/app && uvicorn server:app --port 8001 --reload > /tmp/teach-server.log 2>&1 &)
+  lsof -i :8001 | grep LISTEN || (cd /Users/sumanthg/Documents/teach-me/app && uvicorn server:app --port 8001 > /tmp/teach-server.log 2>&1 &)
+  lsof -i :5173 | grep LISTEN || (cd /Users/sumanthg/Documents/teach-me/app/react-app && npm run dev > /tmp/teach-vite.log 2>&1 &)
+  sleep 4
+  lsof -i :5173 | grep LISTEN
   ```
-- Start React dev server if not already running:
-  ```bash
-  lsof -i :5173 | grep LISTEN || (cd /Users/sumanthg/Documents/teach-me/app/react-app && npm run dev > /tmp/teach-react.log 2>&1 &)
-  ```
-- Wait 4 seconds, then open:
+- If 5173 is up, open it:
   ```bash
   open http://localhost:5173
   ```
+- If 5173 is NOT up, output: `⚠️  Run in terminal: cd app/react-app && npm run dev` and stop.
 - Output:
   ```
   ⚡ Review session live — http://localhost:5173
@@ -326,19 +326,24 @@ Update `memory.json`: set `in_progress` to the topic slug.
 
 Output: `Phase 1 written · starting servers...`
 
-Start FastAPI server if not already running:
+Check and start servers:
 ```bash
-lsof -i :8001 | grep LISTEN || (cd /Users/sumanthg/Documents/teach-me/app && uvicorn server:app --port 8001 --reload > /tmp/teach-server.log 2>&1 &)
+lsof -i :8001 | grep LISTEN || (cd /Users/sumanthg/Documents/teach-me/app && uvicorn server:app --port 8001 > /tmp/teach-server.log 2>&1 &)
+lsof -i :5173 | grep LISTEN || (cd /Users/sumanthg/Documents/teach-me/app/react-app && npm run dev > /tmp/teach-vite.log 2>&1 &)
+sleep 4
+lsof -i :5173 | grep LISTEN
 ```
 
-Start React dev server if not already running:
-```bash
-lsof -i :5173 | grep LISTEN || (cd /Users/sumanthg/Documents/teach-me/app/react-app && npm run dev > /tmp/teach-react.log 2>&1 &)
-```
-
-Wait 4 seconds, then open:
+If port 5173 is up after the sleep, open it:
 ```bash
 open http://localhost:5173
+```
+
+If port 5173 is NOT up after the sleep, output this message and stop:
+```
+⚠️  React dev server didn't start automatically.
+Run this in a terminal: cd /Users/sumanthg/Documents/teach-me/app/react-app && npm run dev
+Then open: http://localhost:5173
 ```
 
 Output:
@@ -602,10 +607,8 @@ After the completion output, pre-generate tomorrow's lesson for instant startup.
 | Problem | Response |
 |---|---|
 | `.teach/memory.json` missing | Create it fresh with the default schema (streak: 0, completed: [], in_progress: null, last_session_date: null, weak_areas: []). |
-| React dev server not running | Auto-started by the skill — check `/tmp/teach-react.log` if the page won't load |
-| FastAPI server not running | Auto-started by the skill — check `/tmp/teach-server.log` if API calls fail |
-| Port 5173 already in use | React already running — just open http://localhost:5173 |
-| Port 8001 already in use | FastAPI already running — no action needed |
+| Server not running | Auto-started by the skill — check `/tmp/teach-server.log` if the page won't load |
+| Port 8001 already in use | API server already running — just open http://localhost:5173 |
 | ai-engineer agent fails to return valid JSON | Use the fallback topic defined in Step 2c and proceed normally. |
 
 ---

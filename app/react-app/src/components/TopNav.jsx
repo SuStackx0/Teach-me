@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 
 export default function TopNav() {
   const [streak, setStreak] = useState(null)
+  const [dark, setDark] = useState(() => localStorage.getItem('theme') === 'dark')
 
   useEffect(() => {
     fetch('/api/memory')
@@ -10,6 +11,16 @@ export default function TopNav() {
       .then(data => { if (data) setStreak(data.streak) })
       .catch(() => {})
   }, [])
+
+  useEffect(() => {
+    if (dark) {
+      document.documentElement.classList.add('dark')
+      localStorage.setItem('theme', 'dark')
+    } else {
+      document.documentElement.classList.remove('dark')
+      localStorage.setItem('theme', 'light')
+    }
+  }, [dark])
 
   return (
     <nav style={{
@@ -46,6 +57,25 @@ export default function TopNav() {
           color: 'var(--warning)',
         }}>🔥 {streak}</span>
       )}
+
+      <button
+        onClick={() => setDark(d => !d)}
+        title={dark ? 'Switch to light mode' : 'Switch to dark mode'}
+        style={{
+          background: 'none',
+          border: '1px solid var(--border)',
+          borderRadius: '6px',
+          padding: '4px 8px',
+          cursor: 'pointer',
+          fontSize: '0.95rem',
+          lineHeight: 1,
+          color: 'var(--text-muted)',
+          display: 'flex',
+          alignItems: 'center',
+        }}
+      >
+        {dark ? '☀︎' : '◑'}
+      </button>
     </nav>
   )
 }

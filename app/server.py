@@ -13,13 +13,15 @@ from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 app = FastAPI(title="teach-me API")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://localhost:4173", "http://localhost:8000"],
+    allow_origins=["*"],
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -233,3 +235,13 @@ def log_session(payload: SessionLog):
 @app.post("/api/chat")
 def chat_placeholder():
     raise HTTPException(status_code=501, detail="Chat not implemented yet")
+
+
+# Serve React build — must come after all API routes
+DIST = Path(__file__).parent / "react-app" / "dist"
+if DIST.exists():
+    app.mount("/assets", StaticFiles(directory=str(DIST / "assets")), name="assets")
+
+    @app.get("/{full_path:path}")
+    def spa_fallback(full_path: str):
+        return FileResponse(str(DIST / "index.html"))
