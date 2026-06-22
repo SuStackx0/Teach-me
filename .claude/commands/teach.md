@@ -22,8 +22,8 @@ Generate and deliver a deep, expert-level AI/ML lesson tailored to Sumanth's bac
 
 **Stack:** Python, FastAPI, PyTorch, AsyncIO, Docker, PostgreSQL, Redis
 
-**Depth preference:** expert — peer-level, dense, production-focused  
-**Session target:** ~90 minutes  
+**Depth preference:** expert — peer-level, example-driven, production-focused  
+**Session target:** 30–60 minutes (hard max 60 min — keep it tight)  
 **Focus areas:** LLM Architecture, Backend Systems, System Design
 
 ---
@@ -44,7 +44,7 @@ Extract and display:
 Output exactly:
 
 ```
-Completed X/60 topics · Streak: Y days 🔥
+Completed X topics · Streak: Y days 🔥
 ```
 
 If `weak_areas` is non-empty, note them internally — weave reinforcement into the lesson where natural (don't announce it).
@@ -108,7 +108,7 @@ If any are due:
 
 **If the user invoked `/teach [topic]`:**
 - Use that text as-is (freeform — any topic the user wants to learn)
-- Set: title = the user topic text, slug = kebab-case version of it, domain = "custom", concepts = [], estimated_minutes = 75, difficulty = "advanced"
+- Set: title = the user topic text, slug = kebab-case version of it, domain = "custom", concepts = [], estimated_minutes = 45, difficulty = "advanced"
 - Output: `📖 Custom topic: [topic]. Generating lesson...`
 - Skip the agent selection below. Jump to Step 3.
 
@@ -160,34 +160,36 @@ FULL AI ENGINEER KNOWLEDGE DOMAIN — cover ALL of these over time:
 
 SELECTION RULES:
 1. NEVER repeat a completed topic (check the list)
-2. Balance domains — avoid same domain 3× in a row (check last 3 completed domains)
-3. Build on what he knows — reference his stack naturally
-4. Difficulty: <10 done → intermediate, 10–25 → advanced, >25 → expert
-5. Cross-domain topics: pick roughly 1 in 5 sessions — they teach the most
-6. Be specific — not "Attention Mechanisms" but "GQA vs MLA: KV Cache Math and DeepSeek Production Tradeoffs"
+2. DOMAIN ROTATION (most important): Rotate across all 9 domains. Never pick the same category (AI-heavy = llm-arch/inference/training/agentic) more than 2 sessions in a row. After 2 AI sessions, MUST pick backend, system-design, mlops, or ml-ds next.
+3. AIM FOR REAL MIX: roughly 1 in 3 sessions should be backend or system design, 1 in 3 AI/inference, 1 in 3 agentic/mlops/eval. Check last 3 completed domains — if all are AI-heavy, force a backend or HLD topic now.
+4. Build on what he knows — reference his stack naturally
+5. Difficulty: <10 done → intermediate, 10–25 → advanced, >25 → expert
+6. Cross-domain topics (e.g., "LLM serving system design" = AI + HLD): pick roughly 1 in 5 — high value
+7. Be specific — not "Attention Mechanisms" but "GQA vs MLA: KV Cache Math and DeepSeek Production Tradeoffs"
+8. Session must fit in 30–60 minutes — pick topics that can be fully taught in that window, not sprawling overviews
 
 Return ONLY valid JSON, no markdown fences:
 {
   "title": "Specific descriptive title",
   "slug": "kebab-case-unique-slug",
   "domain": "llm-arch|inference|training|agentic|ml-ds|mlops|backend|system-design|cross-domain",
-  "concepts": ["specific concept 1", "concept 2", "concept 3", "concept 4", "concept 5"],
+  "concepts": ["specific concept 1", "concept 2", "concept 3"],
   "why_next": "1-2 direct sentences: why this fills a gap for him right now",
   "difficulty": "intermediate|advanced|expert",
-  "estimated_minutes": 75
+  "estimated_minutes": 45
 }
 ```
 
 Substitute: [TODAY_DATE] = today's date, [N_COMPLETED] = n_completed, [COMPLETED_LIST] = completed_list, [WEAK_AREAS_LIST] = weak_areas_list
 
 Parse the agent's JSON response. If parse fails, fallback:
-- title = "Disaggregated Prefill & Chunked Prefill: vLLM v2 Architecture"
-- slug = "disaggregated-prefill-chunked-vllm-v2"
-- domain = "inference"
-- concepts = ["prefill vs decode disaggregation", "chunked prefill scheduler", "KV cache transfer across nodes", "vLLM v2 architecture changes", "latency vs throughput tradeoffs"]
-- why_next = "Direct extension of your continuous batching work."
-- difficulty = "advanced"
-- estimated_minutes = 75
+- title = "Raft Consensus: Leader Election and Log Replication"
+- slug = "raft-consensus-internals"
+- domain = "system-design"
+- concepts = ["leader election", "log replication", "split-brain prevention"]
+- why_next = "Core distributed systems building block behind etcd, Kafka, and Kubernetes — gaps here hurt HLD interviews."
+- difficulty = "intermediate"
+- estimated_minutes = 45
 
 Output: `🤖 Today's topic: [title]`
 
@@ -242,7 +244,7 @@ Generate this lean skeleton yourself — no agents needed, just fill the fields:
 
 ```json
 {
-  "meta": { "slug": "...", "title": "...", "difficulty": "...", "estimated_minutes": 90, "prerequisites": [...], "concepts": [...] },
+  "meta": { "slug": "...", "title": "...", "difficulty": "...", "estimated_minutes": 45, "prerequisites": [...], "concepts": [...] },
   "hook": { "problem": "...", "narrative": "...", "why_it_matters": "..." },
   "concept_map": { "summary": "...", "fits_with": [...], "diagram": { "type": "mermaid|ascii", "content": "..." } },
   "concept_outlines": [
@@ -252,7 +254,7 @@ Generate this lean skeleton yourself — no agents needed, just fill the fields:
 }
 ```
 
-Design 4–5 concept outlines covering the topic's key mechanisms. The outlines guide the concept agents — make them specific (not just "overview of X").
+Design 3–4 concept outlines covering the topic's key mechanisms. Keep it lean — 3 concepts that land deeply beat 5 concepts skimmed. The outlines guide the concept agents — make them specific (not just "overview of X").
 
 ---
 
@@ -280,21 +282,24 @@ YOUR CONCEPT: [TITLE]
 Key points to cover: [KEY_POINTS]
 
 QUALITY RULES:
-- Peer-level, dense, no filler. Reference real systems: vLLM, FlashAttention, EAGLE, Medusa, SGLang, Triton, etc.
-- LANGUAGE: Use plain, direct words. Write like you're explaining to a colleague in a code review, not writing a paper. Short sentences. No academic jargon-stacking. No phrases like "it is worth noting", "fundamentally", "in essence". Say the thing directly.
-- Math is encouraged (LaTeX inline). Give formulas with conditions, not hand-waving.
-- Code must be REAL and runnable: full imports, no `...` placeholders, production-adjacent variable names.
-- line_by_line entries must reference actual line ranges (e.g. "lines": "12-15").
-- Diagrams: mermaid must use flowchart TD or graph LR with no spaces in node labels.
-- micro_quiz: exactly 1-2 questions. Ask about the mechanism, not trivia. The question should require understanding the WHY, not just recalling a name.
+- LEAD WITH A SCENARIO, NOT A DEFINITION. Start the explanation with a real situation: "You have 1000 users hitting your endpoint with the same system prompt..." or "Imagine your Kafka consumer is lagging 5 minutes behind..." Make the reader feel the problem before you explain the solution.
+- USE PLAIN, SHORT WORDS. Write like you're in a Slack thread with a smart colleague. Not a paper. Not a lecture. Say "the block gets shared" not "block reuse is facilitated by reference counting". Say "this breaks when" not "it is worth noting that edge cases may arise".
+- BANNED PHRASES: "it is worth noting", "fundamentally", "in essence", "leverages", "facilitates", "at its core", "underpins", "elucidates", "inherently". If you wrote any of these, rewrite that sentence.
+- After the scenario, explain what actually happens mechanically. Then why it matters (what breaks if you do it wrong).
+- Reference real systems by name where relevant: vLLM, Kafka, Redis, PostgreSQL, FlashAttention, Raft, etcd, Kubernetes, etc.
+- Math: only include if genuinely needed to understand the mechanism. Keep formulas short and explain each symbol in one line.
+- Code: real and runnable. Full imports. No `...` placeholders. Production-adjacent names. Shows the scenario from the explanation.
+- line_by_line: reference actual line ranges (e.g. "lines": "12-15"). Only the non-obvious lines.
+- Diagrams: mermaid must use flowchart TD or graph LR. No spaces in node labels (use underscores).
+- micro_quiz: 1 question. Test understanding of the mechanism, not name recall. The correct answer should require knowing the WHY.
 
-OUTPUT LIMITS (strictly enforced for speed):
-- explanation: max 200 words. Cover the mechanism and why it matters. Nothing else.
-- analogy: max 2 sentences.
-- diagram: include ONLY if it genuinely clarifies something text can't. Skip if in doubt.
-- code_examples: exactly 1 example. Max 25 lines of actual code (not counting imports). Real and runnable.
-- line_by_line: max 3 entries. Only for non-obvious lines. Skip obvious ones.
-- micro_quiz: exactly 1 question (not 1-2).
+OUTPUT LIMITS (strictly enforced):
+- explanation: max 180 words. Scenario + mechanism + consequence. Nothing else.
+- analogy: max 2 sentences. Must map precisely to the mechanism (not just vibes).
+- diagram: only if it shows something text can't. Skip if in doubt.
+- code_examples: exactly 1. Max 20 lines of actual code (not counting imports).
+- line_by_line: max 3 entries. Skip obvious lines.
+- micro_quiz: exactly 1 question.
 
 Return ONLY a valid JSON object — no markdown, no explanation, just the JSON:
 {
@@ -374,20 +379,21 @@ Output: `Spawning assessment agents (quiz+insights · challenge)...`
 
 **Quiz+Insights agent prompt:**
 ```
-Generate quiz questions AND key insights for an expert lesson on "[TOPIC]".
+Generate quiz questions AND key insights for a lesson on "[TOPIC]".
 Concepts: [CONCEPT_TITLES_AND_SUMMARIES]
 Learner: senior AI backend engineer (PagedAttention, vLLM, LoRA, RAG — skip basics).
 
-QUIZ: 5 questions (not more). Include at least 1 code_reading. Distractors must be plausible to experts.
-Each explanation says why each wrong option fails.
+QUIZ: 5 questions (not more). Include at least 1 code_reading. Distractors must be plausible to experts. Each explanation must say why each wrong option fails — in plain sentences, not academic phrasing.
 
-INSIGHTS: 2-3 items max (insight/gotcha/tip). Gotchas must be real production traps.
+INSIGHTS: 2-3 items max. Write like a colleague saying "hey watch out for this." Gotchas must be real things that go wrong in production.
 
-SUMMARY: one_liner + 4-5 tight bullets. No padding.
+SUMMARY: one clear sentence + 4-5 bullets of what matters. No fluff. No "in conclusion".
 
-FURTHER_READING: 2-3 resources. Say exactly why THIS resource for THIS person.
+FURTHER_READING: 2-3 resources with a plain sentence on why this specific resource for this specific person.
 
-OUTPUT LIMITS: Be concise. Quiz explanations max 3 sentences each. Insights max 2 sentences each.
+LANGUAGE: Short sentences. Plain words. No "it is worth noting", "fundamentally", "in essence". Explain like a Slack message.
+
+OUTPUT LIMITS: Quiz explanations max 2 sentences each. Insights max 2 sentences each.
 
 Return ONLY a single JSON object (no markdown):
 {
@@ -427,13 +433,12 @@ Wait for both agents. As each returns, log: `Quiz+Insights done` / `Challenge do
 ## Lesson Generation Rules — Read These Every Time
 
 ### Depth & Tone
-- Peer-level. Dense. No filler. No "in today's fast-paced AI landscape."
-- **LANGUAGE: Plain, direct words.** Write like explaining to a smart colleague, not writing a paper. Short sentences. No academic jargon-stacking ("leverages", "facilitates", "it is worth noting", "fundamentally", "in essence"). Say the thing directly.
-- Reference real systems by name: vLLM, FlashAttention, DeepSeek, Triton kernels, Megatron-LM, KIVI, H2O, SGLang, Medusa, EAGLE, SpecInfer, etc.
-- Frame everything as "here's what breaks in production" — Sumanth ships real systems.
-- When claiming a number (acceptance rate bound, memory formula, FLOP count), give the formula or the precise condition it holds under. No hand-waving.
-- **Do NOT explain** things he already knows cold: attention mechanism basics, KV cache fundamentals, LoRA basics, RAG retrieval basics, PagedAttention block management, Docker/FastAPI patterns.
-- Connect every concept back to his stack where natural (e.g., "in your continuous batching scheduler, this would manifest as...").
+- **SCENARIO FIRST, ALWAYS.** Every concept and section should open with a concrete situation, not a definition. Bad: "Raft is a consensus algorithm." Good: "Your Redis cluster just lost its primary. Three replicas are now fighting over who's in charge. Without consensus, they'll all start accepting writes and split-brain will corrupt your data."
+- **PLAIN WORDS, SHORT SENTENCES.** Write like a Slack message to a smart colleague, not a conference paper. Never use: "leverages", "facilitates", "fundamentally", "in essence", "it is worth noting", "underpins", "inherently".
+- Reference real systems: vLLM, FlashAttention, Kafka, Redis, etcd, Kubernetes, Raft, PostgreSQL, Triton, SGLang, Medusa, EAGLE.
+- Numbers and math only when the formula unlocks understanding. Always say what breaks if you get it wrong.
+- **Do NOT explain** things he already knows: attention basics, KV cache basics, LoRA, RAG retrieval, PagedAttention block management, Docker/FastAPI patterns.
+- Connect to his actual work naturally: "in your vLLM deployment...", "your Redis cluster...", "your inference scheduler..."
 
 ### Code Rules
 - All code must be **real and runnable** in Python/PyTorch (or Triton/CUDA where appropriate).
@@ -499,7 +504,7 @@ Read `memory.json`. If `in_progress == null` AND the topic slug already appears 
 
 ```
 Session already logged via Streamlit.
-Progress: [X]/60 topics · [N]-day streak
+Progress: [X] topics · [N]-day streak
 See you next time!
 ```
 
@@ -605,7 +610,7 @@ Output: `📁 Lesson archived → .teach/archive/[slug].json`
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ✅ Session logged!
 
-Progress: [X]/60 topics complete · [N]-day streak 🔥
+Progress: [X] topics complete · [N]-day streak 🔥
 
 Weak areas flagged: "[their answer]"
 → I'll reinforce this in a future session.
