@@ -1,6 +1,6 @@
 # /teach — Daily AI Lesson Generator
 
-Generate and deliver a deep, expert-level AI/ML lesson tailored to Sumanth's background, track progress, and launch the Streamlit viewer.
+Generate and deliver a deep, expert-level lesson covering AI engineering, backend systems, and system design. Track progress and launch the React viewer.
 
 **Usage:** `/teach` (picks next topic) or `/teach [topic]` (e.g. `/teach speculative decoding internals`)
 
@@ -117,27 +117,19 @@ weak_areas_list = ", ".join([
     for w in memory.get('weak_areas', [])
     if not (isinstance(w, dict) and w.get('retired'))
 ]) or "None"
-known_well_list = "\n".join([
-    f"- {item}"
-    for item in memory.get("learner", {}).get("known_well", [])
-]) or "- FastAPI + AsyncIO + Redis + PyTorch + Docker"
 ```
 
 Spawn an Agent with **subagent_type `ai-engineer`** using this exact prompt (substitute the [PLACEHOLDERS]):
 
 ```
-You are an AI engineer curriculum designer selecting today's learning topic for Sumanth G.
+You are an AI engineer curriculum designer selecting today's learning topic.
 
-LEARNER: AI Backend Engineer, uCube.ai
 TODAY: [TODAY_DATE]
 COMPLETED ([N_COMPLETED] topics so far):
 [COMPLETED_LIST]
 
 WEAK AREAS (reinforce naturally if possible):
 [WEAK_AREAS_LIST]
-
-KNOWS WELL — NEVER RE-TEACH:
-[KNOWN_WELL_LIST]
 
 FULL AI ENGINEER KNOWLEDGE DOMAIN — cover ALL of these over time:
 - LLM Architecture: attention variants (GQA/MLA/MHA), quantization (GPTQ/AWQ/FP8/GGUF), speculative decoding (Medusa/EAGLE/SpecInfer), MoE routing & capacity factor, SSMs/Mamba selective scan, FlashAttention 2/3 tiling, positional encodings (RoPE/YaRN/ALiBi), pre-training objectives, tokenization internals (BPE/unigram/byte-level)
@@ -151,14 +143,15 @@ FULL AI ENGINEER KNOWLEDGE DOMAIN — cover ALL of these over time:
 - Cross-domain (HIGH VALUE — pick 1 in 5): vector DB internals (HNSW/IVF-PQ indexing), LLM serving system design end-to-end, streaming inference pipelines, AI feature stores, online learning systems, LLM eval infrastructure at scale, semantic caching architectures, multi-model deployment orchestration, speculative decoding meets continuous batching
 
 SELECTION RULES:
-1. NEVER repeat a completed topic (check the list)
-2. DOMAIN ROTATION (most important): Rotate across all 9 domains. Never pick the same category (AI-heavy = llm-arch/inference/training/agentic) more than 2 sessions in a row. After 2 AI sessions, MUST pick backend, system-design, mlops, or ml-ds next.
-3. AIM FOR REAL MIX: roughly 1 in 3 sessions should be backend or system design, 1 in 3 AI/inference, 1 in 3 agentic/mlops/eval. Check last 3 completed domains — if all are AI-heavy, force a backend or HLD topic now.
-4. Build on what he knows — reference his stack naturally
-5. Difficulty: <10 done → intermediate, 10–25 → advanced, >25 → expert
-6. Cross-domain topics (e.g., "LLM serving system design" = AI + HLD): pick roughly 1 in 5 — high value
-7. Be specific — not "Attention Mechanisms" but "GQA vs MLA: KV Cache Math and DeepSeek Production Tradeoffs"
-8. Session must fit in 30–60 minutes — pick topics that can be fully taught in that window, not sprawling overviews
+1. NEVER repeat a completed topic. Check the COMPLETED list carefully — if a topic with the same or nearly the same slug or title appears, skip it entirely.
+2. FRESH START RULE: When n_completed == 0, you MUST pick from Backend Systems or System Design/HLD. Do NOT pick any LLM Architecture topic for the very first session.
+3. PREREQUISITE ORDERING (critical): Every topic you pick must have all its prerequisites already covered in the COMPLETED list, OR be a foundational topic with no prerequisites. If a topic requires prior knowledge of X and X is not in the completed list, do NOT pick that topic — pick X first (or a foundational topic from another domain instead). Example: do not pick "KV Cache Eviction Algorithms" before "Continuous Batching Internals" has been completed. Do not pick "FSDP/ZeRO Stage 3" before "Distributed Training Basics" is done. Foundational topics (e.g. "PostgreSQL MVCC", "Raft Consensus Basics", "Transformer Architecture", "HTTP/gRPC Fundamentals") have no prerequisites and are always safe to pick.
+4. DOMAIN ROTATION (most important): Rotate across all 9 domains. Never pick the same category (AI-heavy = llm-arch/inference/training/agentic) more than 2 sessions in a row. After 2 AI sessions, MUST pick backend, system-design, mlops, or ml-ds next.
+5. AIM FOR REAL MIX: roughly 1 in 3 sessions should be backend or system design, 1 in 3 AI/inference, 1 in 3 agentic/mlops/eval. Check last 3 completed domains — if all are AI-heavy, force a backend or HLD topic now.
+6. Difficulty: <10 done → intermediate, 10–25 → advanced, >25 → expert
+7. Cross-domain topics (e.g., "LLM serving system design" = AI + HLD): pick roughly 1 in 5 — high value
+8. Be specific — not "Attention Mechanisms" but "Transformer Self-Attention: Scaled Dot-Product and Why It Works"
+9. Session must fit in 30–60 minutes — pick topics that can be fully taught in that window, not sprawling overviews
 
 Return ONLY valid JSON, no markdown fences:
 {
@@ -172,7 +165,7 @@ Return ONLY valid JSON, no markdown fences:
 }
 ```
 
-Substitute: [TODAY_DATE] = today's date, [N_COMPLETED] = n_completed, [COMPLETED_LIST] = completed_list, [WEAK_AREAS_LIST] = weak_areas_list, [KNOWN_WELL_LIST] = known_well_list
+Substitute: [TODAY_DATE] = today's date, [N_COMPLETED] = n_completed, [COMPLETED_LIST] = completed_list, [WEAK_AREAS_LIST] = weak_areas_list
 
 Parse the agent's JSON response. If parse fails, fallback:
 - title = "Raft Consensus: Leader Election and Log Replication"
@@ -246,7 +239,7 @@ Generate this lean skeleton yourself — no agents needed, just fill the fields:
 }
 ```
 
-Design 3–4 concept outlines covering the topic's key mechanisms. Keep it lean — 3 concepts that land deeply beat 5 concepts skimmed. The outlines guide the concept agents — make them specific (not just "overview of X").
+Design 3–4 concept outlines covering the topic's key mechanisms. Keep it lean — 3 concepts that land deeply beat 5 concepts skimmed. The outlines guide the concept agents — make them specific (not just "overview of X"). Order concepts from foundational to advanced — each concept should build on the one before it.
 
 ---
 
@@ -261,10 +254,7 @@ As each agent returns, log: `Concept [i+1]/[N] done: [title]`
 Agent prompt template for each concept (substitute `[INDEX]`, `[TOTAL]`, `[TOPIC]`, `[TITLE]`, `[KEY_POINTS]`, `[OTHER_TITLES]`):
 
 ```
-You are generating core concept [INDEX+1] of [TOTAL] for an expert lesson on "[TOPIC]" for Sumanth G (AI Backend Engineer, uCube.ai).
-
-LEARNER PROFILE — already built from scratch, NEVER re-explain:
-[KNOWN_WELL_LIST]
+You are generating core concept [INDEX+1] of [TOTAL] for an expert lesson on "[TOPIC]".
 
 Other concepts in this lesson (avoid overlap): [OTHER_TITLES]
 
@@ -272,9 +262,10 @@ YOUR CONCEPT: [TITLE]
 Key points to cover: [KEY_POINTS]
 
 QUALITY RULES:
-- LEAD WITH A SCENARIO, NOT A DEFINITION. Open with a concrete, relatable situation — something he could hit in production. "Your vLLM deployment is OOM at batch_size=8..." or "Two workers both grab the same job from your Postgres queue..." Make him feel the problem before you explain the solution.
+- LEAD WITH A SCENARIO, NOT A DEFINITION. Open with a concrete, real-world situation — something you'd hit in production. "A vLLM deployment runs OOM at batch_size=8..." or "Two workers grab the same job from the Postgres queue..." Make the reader feel the problem before you explain the solution.
 - EXPLAIN THOROUGHLY. This is a teaching document, not a bullet list. Walk through the mechanism step by step. Use sub-paragraphs. Cover the why, the how, the what-breaks-if-you-get-it-wrong. Minimum 350 words in the explanation — longer is fine if the topic warrants it.
 - USE SIMPLE EXAMPLES THROUGHOUT. Don't save examples for the end. Weave small concrete examples into the explanation as you go. "For example, if you have 4 query heads and 1 KV head..." or "Imagine token 42 has xmin=1500 and xmax=0 — that means..."
+- ASSUME NO PRIOR KNOWLEDGE beyond general software engineering. Explain every concept fully from the ground up, including prerequisites.
 - USE PLAIN, SHORT WORDS. Write like you're explaining this over lunch to a smart colleague. Not a paper. Not a lecture.
 - BANNED PHRASES: "it is worth noting", "fundamentally", "in essence", "leverages", "facilitates", "at its core", "underpins", "elucidates", "inherently". If you wrote any of these, rewrite that sentence.
 - Reference real systems by name where relevant: vLLM, Kafka, Redis, PostgreSQL, FlashAttention, Raft, etcd, Kubernetes, etc.
@@ -368,7 +359,6 @@ Output: `Spawning assessment agent (quiz + insights)...`
 ```
 Generate quiz questions AND key insights for a lesson on "[TOPIC]".
 Concepts: [CONCEPT_TITLES_AND_SUMMARIES]
-Learner: senior AI backend engineer (PagedAttention, vLLM, LoRA, RAG — skip basics).
 
 QUIZ: exactly 5 questions. Use simple, concrete scenarios — not gotchas. Each question should test whether the reader understood the mechanism, not whether they memorized a fact. Use plain situations: "You have a table with 10M rows and 2M dead tuples..." or "A model has H=32 query heads and G=4 KV heads...". Include at least 1 multiple_choice and at least 1 scenario-based question. Distractors should be plausible but clearly wrong once you understand the concept. Each explanation must be 2-4 sentences: state the right answer, explain why the wrong options fail, and call out the common mistake.
 
@@ -406,8 +396,6 @@ Wait for the agent. Log: `Quiz+Insights done`. Then:
 - **PLAIN WORDS, SHORT SENTENCES.** Write like a Slack message to a smart colleague, not a conference paper. Never use: "leverages", "facilitates", "fundamentally", "in essence", "it is worth noting", "underpins", "inherently".
 - Reference real systems: vLLM, FlashAttention, Kafka, Redis, etcd, Kubernetes, Raft, PostgreSQL, Triton, SGLang, Medusa, EAGLE.
 - Numbers and math only when the formula unlocks understanding. Always say what breaks if you get it wrong.
-- **Do NOT explain** things he already knows: attention basics, KV cache basics, LoRA, RAG retrieval, PagedAttention block management, Docker/FastAPI patterns.
-- Connect to his actual work naturally: "in your vLLM deployment...", "your Redis cluster...", "your inference scheduler..."
 
 ### Code Rules
 - Code in concepts is **illustrative snippets only** — 5-10 lines, no imports needed, pseudocode-adjacent is fine.
@@ -443,10 +431,8 @@ Output exactly this block (fill in the bracketed values):
 📚  TODAY'S LESSON: [TITLE IN CAPS]
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-Why this topic for you:
-[1-2 sentences specific to his background — e.g., "You built the continuous
-batching scheduler from scratch; speculative decoding slots directly into
-the verify step of that autoregressive loop."]
+Why this topic:
+[from agent response .why_next]
 
 Difficulty: [difficulty]  ·  ~[X] min
 

@@ -72,24 +72,33 @@ strong { color: var(--text-primary); font-weight: 600; }
 .app-shell {
   display: grid;
   grid-template-columns: 240px 1fr;
-  grid-template-rows: 1fr;
+  grid-template-rows: 3px 1fr;
   height: calc(100vh - 48px);
 }
 
+.progress-bar-slot {
+  grid-column: 1 / -1;
+  grid-row: 1;
+}
+
 .sidebar {
+  grid-column: 1;
+  grid-row: 2;
   background: var(--surface);
   border-right: 1px solid var(--border);
   border-left: 3px solid var(--accent);
   overflow-y: auto;
-  position: sticky;
-  top: 0;
-  height: calc(100vh - 48px);
+  height: calc(100vh - 48px - 3px);
 }
 
 .main-content {
+  grid-column: 2;
+  grid-row: 2;
   padding: 2.5rem 3rem;
   max-width: 900px;
   width: 100%;
+  overflow-y: auto;
+  height: calc(100vh - 48px - 3px);
 }
 
 /* Cards */

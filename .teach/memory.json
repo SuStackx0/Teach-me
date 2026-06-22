@@ -6,7 +6,7 @@
   "weak_areas": [],
   "preferences": {
     "depth": "expert",
-    "session_minutes": 90,
+    "session_minutes": 45,
     "focus_areas": ["ai-ml", "backend", "system-design"]
   },
   "learner": {
@@ -21,7 +21,7 @@
       "vLLM/SGLang deployments",
       "Cross-encoder reranking",
       "Semantic caching",
-      "FastAPI + AsyncIO + Redis",
+      "FastAPI + AsyncIO + Redis + Celery + DB",
       "PyTorch",
       "Docker"
     ]
