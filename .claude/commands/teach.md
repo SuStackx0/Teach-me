@@ -8,23 +8,7 @@ Generate and deliver a deep, expert-level AI/ML lesson tailored to Sumanth's bac
 
 ## Learner Profile
 
-**Name:** Sumanth G  
-**Role:** AI Backend Engineer at uCube.ai  
-**Email:** sumanth@ucube.ai
-
-**Already built from scratch / in production — DO NOT re-explain these:**
-- LLM inference engine with PagedAttention + continuous batching
-- Hybrid RAG over Neo4j + Weaviate with cross-encoder reranking + semantic caching
-- LoRA fine-tuning (InLegal-BERT)
-- Multi-agent systems with LangChain/LangGraph
-- vLLM/SGLang deployments
-- Agentic query router (Qwen-3.5-8B)
-
-**Stack:** Python, FastAPI, PyTorch, AsyncIO, Docker, PostgreSQL, Redis
-
-**Depth preference:** expert — peer-level, example-driven, production-focused  
-**Session target:** 30–60 minutes (hard max 60 min — keep it tight)  
-**Focus areas:** LLM Architecture, Backend Systems, System Design
+Read from `memory.json` at runtime — do not hardcode here. The `learner` field in memory.json contains `name`, `role`, `company`, and `known_well[]`. The ai-engineer agent in Step 2c reads this dynamically.
 
 ---
 
@@ -92,15 +76,22 @@ If any are due:
   }
   ```
 - Update `memory.json`: set `in_progress` to `"review-[slug]"`
-- Launch Streamlit:
+- Start FastAPI server if not already running:
   ```bash
-  cd /Users/sumanthg/Documents/teach-me/app && streamlit run app.py &
+  lsof -i :8001 | grep LISTEN || (cd /Users/sumanthg/Documents/teach-me/app && uvicorn server:app --port 8001 --reload > /tmp/teach-server.log 2>&1 &)
   ```
-- Wait 3 seconds, then open http://localhost:8501
+- Start React dev server if not already running:
+  ```bash
+  lsof -i :5173 | grep LISTEN || (cd /Users/sumanthg/Documents/teach-me/app/react-app && npm run dev > /tmp/teach-react.log 2>&1 &)
+  ```
+- Wait 4 seconds, then open:
+  ```bash
+  open http://localhost:5173
+  ```
 - Output:
   ```
-  ⚡ Review session in Streamlit — http://localhost:8501
-     Say 'done' when finished.
+  ⚡ Review session live — http://localhost:5173
+     Come back and say "done" when finished.
   ```
 - **Stop here. Do NOT start a new lesson today.** Reviews take priority over new content — same as Anki.
 
@@ -126,6 +117,10 @@ weak_areas_list = ", ".join([
     for w in memory.get('weak_areas', [])
     if not (isinstance(w, dict) and w.get('retired'))
 ]) or "None"
+known_well_list = "\n".join([
+    f"- {item}"
+    for item in memory.get("learner", {}).get("known_well", [])
+]) or "- FastAPI + AsyncIO + Redis + PyTorch + Docker"
 ```
 
 Spawn an Agent with **subagent_type `ai-engineer`** using this exact prompt (substitute the [PLACEHOLDERS]):
@@ -142,10 +137,7 @@ WEAK AREAS (reinforce naturally if possible):
 [WEAK_AREAS_LIST]
 
 KNOWS WELL — NEVER RE-TEACH:
-- PagedAttention + continuous batching (built from scratch)
-- Hybrid RAG (Neo4j + Weaviate, cross-encoder reranking, semantic caching)
-- LoRA fine-tuning, multi-agent systems (LangGraph), vLLM/SGLang deployments
-- FastAPI + AsyncIO + Redis + PyTorch + Docker
+[KNOWN_WELL_LIST]
 
 FULL AI ENGINEER KNOWLEDGE DOMAIN — cover ALL of these over time:
 - LLM Architecture: attention variants (GQA/MLA/MHA), quantization (GPTQ/AWQ/FP8/GGUF), speculative decoding (Medusa/EAGLE/SpecInfer), MoE routing & capacity factor, SSMs/Mamba selective scan, FlashAttention 2/3 tiling, positional encodings (RoPE/YaRN/ALiBi), pre-training objectives, tokenization internals (BPE/unigram/byte-level)
@@ -180,7 +172,7 @@ Return ONLY valid JSON, no markdown fences:
 }
 ```
 
-Substitute: [TODAY_DATE] = today's date, [N_COMPLETED] = n_completed, [COMPLETED_LIST] = completed_list, [WEAK_AREAS_LIST] = weak_areas_list
+Substitute: [TODAY_DATE] = today's date, [N_COMPLETED] = n_completed, [COMPLETED_LIST] = completed_list, [WEAK_AREAS_LIST] = weak_areas_list, [KNOWN_WELL_LIST] = known_well_list
 
 Parse the agent's JSON response. If parse fails, fallback:
 - title = "Raft Consensus: Leader Election and Log Replication"
@@ -272,9 +264,7 @@ Agent prompt template for each concept (substitute `[INDEX]`, `[TOTAL]`, `[TOPIC
 You are generating core concept [INDEX+1] of [TOTAL] for an expert lesson on "[TOPIC]" for Sumanth G (AI Backend Engineer, uCube.ai).
 
 LEARNER PROFILE — already built from scratch, NEVER re-explain:
-- LLM inference engine with PagedAttention + continuous batching
-- Hybrid RAG (Neo4j + Weaviate, cross-encoder reranking, semantic caching)
-- LoRA fine-tuning (InLegal-BERT), multi-agent systems (LangGraph), vLLM/SGLang deployments
+[KNOWN_WELL_LIST]
 
 Other concepts in this lesson (avoid overlap): [OTHER_TITLES]
 
@@ -282,44 +272,35 @@ YOUR CONCEPT: [TITLE]
 Key points to cover: [KEY_POINTS]
 
 QUALITY RULES:
-- LEAD WITH A SCENARIO, NOT A DEFINITION. Start the explanation with a real situation: "You have 1000 users hitting your endpoint with the same system prompt..." or "Imagine your Kafka consumer is lagging 5 minutes behind..." Make the reader feel the problem before you explain the solution.
-- USE PLAIN, SHORT WORDS. Write like you're in a Slack thread with a smart colleague. Not a paper. Not a lecture. Say "the block gets shared" not "block reuse is facilitated by reference counting". Say "this breaks when" not "it is worth noting that edge cases may arise".
+- LEAD WITH A SCENARIO, NOT A DEFINITION. Open with a concrete, relatable situation — something he could hit in production. "Your vLLM deployment is OOM at batch_size=8..." or "Two workers both grab the same job from your Postgres queue..." Make him feel the problem before you explain the solution.
+- EXPLAIN THOROUGHLY. This is a teaching document, not a bullet list. Walk through the mechanism step by step. Use sub-paragraphs. Cover the why, the how, the what-breaks-if-you-get-it-wrong. Minimum 350 words in the explanation — longer is fine if the topic warrants it.
+- USE SIMPLE EXAMPLES THROUGHOUT. Don't save examples for the end. Weave small concrete examples into the explanation as you go. "For example, if you have 4 query heads and 1 KV head..." or "Imagine token 42 has xmin=1500 and xmax=0 — that means..."
+- USE PLAIN, SHORT WORDS. Write like you're explaining this over lunch to a smart colleague. Not a paper. Not a lecture.
 - BANNED PHRASES: "it is worth noting", "fundamentally", "in essence", "leverages", "facilitates", "at its core", "underpins", "elucidates", "inherently". If you wrote any of these, rewrite that sentence.
-- After the scenario, explain what actually happens mechanically. Then why it matters (what breaks if you do it wrong).
 - Reference real systems by name where relevant: vLLM, Kafka, Redis, PostgreSQL, FlashAttention, Raft, etcd, Kubernetes, etc.
-- Math: only include if genuinely needed to understand the mechanism. Keep formulas short and explain each symbol in one line.
-- Code: real and runnable. Full imports. No `...` placeholders. Production-adjacent names. Shows the scenario from the explanation.
-- line_by_line: reference actual line ranges (e.g. "lines": "12-15"). Only the non-obvious lines.
-- Diagrams: mermaid must use flowchart TD or graph LR. No spaces in node labels (use underscores).
-- micro_quiz: 1 question. Test understanding of the mechanism, not name recall. The correct answer should require knowing the WHY.
+- Math: include when it unlocks understanding. Show a worked example with real numbers.
+- Code snippets: short and illustrative only (5-10 lines). NO full programs, NO imports. Just the key lines that show the concept. Pseudocode is fine if it's clearer.
+- Diagrams: mermaid must use flowchart TD or graph LR. No spaces in node labels (use underscores). Only include if it shows something text genuinely can't convey.
+- micro_quiz: 1 simple question. Test whether they understood the mechanism with a basic scenario. Keep it approachable — not a gotcha.
 
-OUTPUT LIMITS (strictly enforced):
-- explanation: max 180 words. Scenario + mechanism + consequence. Nothing else.
-- analogy: max 2 sentences. Must map precisely to the mechanism (not just vibes).
-- diagram: only if it shows something text can't. Skip if in doubt.
-- code_examples: exactly 1. Max 20 lines of actual code (not counting imports).
-- line_by_line: max 3 entries. Skip obvious lines.
-- micro_quiz: exactly 1 question.
-
-Return ONLY a valid JSON object — no markdown, no explanation, just the JSON:
+OUTPUT FORMAT — return ONLY a valid JSON object, no markdown wrapper:
 {
   "title": "string",
-  "explanation": "string — plain direct language, peer-level, short sentences",
-  "analogy": "string — precise analogy mapping to the mechanism",
+  "explanation": "string — thorough, scenario-first, example-rich, plain language. Minimum 350 words.",
+  "analogy": "string — 1-3 sentences. Must map precisely to the mechanism, not just vibes.",
   "diagram": {"type": "mermaid|ascii", "content": "string"} or null,
-  "code_examples": [
+  "code_snippets": [
     {
-      "language": "python|bash|triton|cuda",
-      "filename": "string or null",
-      "code": "string — full runnable code with imports",
-      "line_by_line": [{"lines": "N-M", "explanation": "string"}]
+      "language": "python|sql|bash",
+      "caption": "string — one sentence explaining what this snippet shows",
+      "code": "string — 5-10 lines max, illustrative only, no imports needed"
     }
   ],
   "micro_quiz": [
     {
-      "question": "string — 1 specific question testing the core mechanism of this concept",
-      "answer": "string — direct 1-3 sentence answer",
-      "explanation": "string — why this matters or common mistake to avoid"
+      "question": "string — simple scenario question testing the core mechanism",
+      "answer": "string — clear direct answer",
+      "explanation": "string — why this is the right answer, what the common mistake is"
     }
   ]
 }
@@ -329,7 +310,7 @@ Wait for all concept agents to return before proceeding.
 
 ---
 
-### Step 4c — Assemble Phase 1, write file, launch Streamlit
+### Step 4c — Assemble Phase 1, write file, launch React app
 
 Parse each concept agent's JSON output. Each parsed concept object (including its `micro_quiz` field) is included as-is in `core_concepts`. Build Phase 1:
 
@@ -352,30 +333,36 @@ Parse each concept agent's JSON output. Each parsed concept object (including it
 Write Phase 1 JSON to `/Users/sumanthg/Documents/teach-me/.teach/current_lesson.json`.
 Update `memory.json`: set `in_progress` to the topic slug.
 
-Output: `Phase 1 written · launching Streamlit...`
+Output: `Phase 1 written · starting servers...`
 
-Launch Streamlit:
+Start FastAPI server if not already running:
 ```bash
-cd /Users/sumanthg/Documents/teach-me/app && streamlit run app.py &
+lsof -i :8001 | grep LISTEN || (cd /Users/sumanthg/Documents/teach-me/app && uvicorn server:app --port 8001 --reload > /tmp/teach-server.log 2>&1 &)
 ```
-Wait 3 seconds, then:
+
+Start React dev server if not already running:
 ```bash
-open http://localhost:8501
+lsof -i :5173 | grep LISTEN || (cd /Users/sumanthg/Documents/teach-me/app/react-app && npm run dev > /tmp/teach-react.log 2>&1 &)
+```
+
+Wait 4 seconds, then open:
+```bash
+open http://localhost:5173
 ```
 
 Output:
 ```
-⚡ Lesson in Streamlit — http://localhost:8501
-   Spawning assessment agents in parallel...
+⚡ http://localhost:5173 — study this, come back and say "done" when finished.
+   Assessment agents generating in background...
 ```
 
 ---
 
-### Step 4d — Spawn assessment agents in parallel
+### Step 4d — Spawn quiz+insights agent
 
-Output: `Spawning assessment agents (quiz+insights · challenge)...`
+Output: `Spawning assessment agent (quiz + insights)...`
 
-**In a single message, call the Agent tool 2 times simultaneously** (quiz+insights, challenge). Pass the topic title and a summary of each concept's title + key points as context.
+**Call the Agent tool once** for quiz+insights. Pass the topic title and a summary of each concept's title + key points as context.
 
 **Quiz+Insights agent prompt:**
 ```
@@ -383,50 +370,32 @@ Generate quiz questions AND key insights for a lesson on "[TOPIC]".
 Concepts: [CONCEPT_TITLES_AND_SUMMARIES]
 Learner: senior AI backend engineer (PagedAttention, vLLM, LoRA, RAG — skip basics).
 
-QUIZ: 5 questions (not more). Include at least 1 code_reading. Distractors must be plausible to experts. Each explanation must say why each wrong option fails — in plain sentences, not academic phrasing.
+QUIZ: exactly 5 questions. Use simple, concrete scenarios — not gotchas. Each question should test whether the reader understood the mechanism, not whether they memorized a fact. Use plain situations: "You have a table with 10M rows and 2M dead tuples..." or "A model has H=32 query heads and G=4 KV heads...". Include at least 1 multiple_choice and at least 1 scenario-based question. Distractors should be plausible but clearly wrong once you understand the concept. Each explanation must be 2-4 sentences: state the right answer, explain why the wrong options fail, and call out the common mistake.
 
-INSIGHTS: 2-3 items max. Write like a colleague saying "hey watch out for this." Gotchas must be real things that go wrong in production.
+INSIGHTS: 2-3 items. Write like a colleague saying "hey, watch out for this in production." Real gotchas only — things that actually bite people.
 
-SUMMARY: one clear sentence + 4-5 bullets of what matters. No fluff. No "in conclusion".
+SUMMARY: one clear sentence + 4-5 bullets of the most important takeaways. No fluff.
 
-FURTHER_READING: 2-3 resources with a plain sentence on why this specific resource for this specific person.
+FURTHER_READING: 2-3 resources. One sentence each on why this specific resource matters for this specific person.
 
-LANGUAGE: Short sentences. Plain words. No "it is worth noting", "fundamentally", "in essence". Explain like a Slack message.
-
-OUTPUT LIMITS: Quiz explanations max 2 sentences each. Insights max 2 sentences each.
+LANGUAGE: Short sentences. Plain words. No "it is worth noting", "fundamentally", "in essence".
 
 Return ONLY a single JSON object (no markdown):
 {
-  "quiz": [{"id": N, "type": "...", "question": "...", "code": null, "options": [...], "answer": "...", "accepted_answers": [...], "explanation": "..."}],
+  "quiz": [{"id": N, "type": "multiple_choice|scenario|true_false", "question": "...", "code": null, "options": ["A. ...", "B. ...", "C. ...", "D. ..."], "answer": "A", "accepted_answers": ["A"], "explanation": "..."}],
   "key_insights": [{"kind": "insight|gotcha|tip", "title": "...", "text": "..."}],
   "summary": {"one_liner": "...", "takeaways": ["..."]},
-  "further_reading": [{"title": "...", "url": null, "kind": "...", "why": "..."}]
+  "further_reading": [{"title": "...", "url": null, "kind": "paper|blog|docs|book", "why": "..."}]
 }
 ```
 
-**Challenge agent prompt:**
-```
-Generate a coding challenge for an expert lesson on "[TOPIC]".
-Concepts: [CONCEPT_TITLES_AND_SUMMARIES]
-Learner: senior AI backend engineer building LLM inference or AI backend systems.
-
-The challenge must build something that slots into a real system (inference engine, serving layer, etc.).
-starter_code: real scaffold with TODO markers + a runnable test harness at the bottom.
-solution: full working code with inline comments.
-hints: 3–4 progressive, from gentle to revealing.
-
-Return ONLY a JSON object (no markdown):
-{"title": "...", "prompt": "...", "starter_code": "...", "requirements": [...], "hints": [...], "solution": "...", "extension": "...|null"}
-```
-
-Wait for both agents. As each returns, log: `Quiz+Insights done` / `Challenge done`. Then:
-1. Parse each result
+Wait for the agent. Log: `Quiz+Insights done`. Then:
+1. Parse the result
 2. Read `/Users/sumanthg/Documents/teach-me/.teach/current_lesson.json`
-3. From the quiz+insights agent result, extract: `quiz`, `key_insights`, `summary`, `further_reading`
-4. Merge in: `key_insights`, `quiz`, `coding_challenge`, `summary`, `further_reading`
-5. Set `_generation_status: "complete"`
-6. Write merged JSON back to `current_lesson.json`
-7. Output: `Generation complete.`
+3. Merge in: `key_insights`, `quiz`, `summary`, `further_reading`
+4. Set `_generation_status: "complete"`
+5. Write merged JSON back to `current_lesson.json`
+6. Output: `Generation complete.`
 
 ---
 
@@ -441,11 +410,10 @@ Wait for both agents. As each returns, log: `Quiz+Insights done` / `Challenge do
 - Connect to his actual work naturally: "in your vLLM deployment...", "your Redis cluster...", "your inference scheduler..."
 
 ### Code Rules
-- All code must be **real and runnable** in Python/PyTorch (or Triton/CUDA where appropriate).
-- No `...` placeholders unless you explicitly label them `# ELIDED: [what's here]` with a clear explanation.
-- Full imports at the top of every code block.
-- `line_by_line` explanations must reference **actual line ranges** (e.g., `"lines": "12-15"`).
-- Code examples should be production-adjacent: proper error handling, realistic variable names, not toy naming.
+- Code in concepts is **illustrative snippets only** — 5-10 lines, no imports needed, pseudocode-adjacent is fine.
+- The goal is to show the concept, not to ship runnable code. Clarity beats completeness.
+- Use realistic variable names and values (e.g. `H=64, G=8` not `x=4, y=1`).
+- No `line_by_line` field — the snippet caption + the explanation text carries that context.
 
 ### Quiz Rules (5-8 questions)
 - Include all 4 types; at least 1 `code_reading`.
@@ -482,11 +450,11 @@ the verify step of that autoregressive loop."]
 
 Difficulty: [difficulty]  ·  ~[X] min
 
-🌐  http://localhost:8501
+🌐  http://localhost:5173
 
 Sections you'll work through:
   ⚡ Hook → 🗺️ Concept Map → 🧠 Core Concepts × [N]
-  → 💡 Key Insights → 🧪 Quiz ([Q] questions) → 🏗️ Coding Challenge → 📋 Summary
+  → 💡 Key Insights → 🧪 Quiz ([Q] questions) → 📋 Summary
 
 When you're done, come back here and say "done" — I'll log your session.
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -634,9 +602,9 @@ After the completion output, pre-generate tomorrow's lesson for instant startup.
 2. Spawn an **ai-engineer** Agent with the same topic-selection prompt from Step 2c (with updated context)
 3. Parse the returned JSON to get the next topic {title, slug, domain, concepts, why_next, difficulty, estimated_minutes}
 4. If agent fails or parse fails: output `⚠️  Pre-generation skipped — next topic will be selected fresh on next /teach` and stop
-5. If successful: Generate the full lesson using SAME parallel agent structure as Steps 4a–4d:
+5. If successful: Generate the full lesson using SAME parallel agent structure as Steps 4a–4d (no coding challenge):
    - Write Phase 1 to a temp variable (do NOT overwrite current_lesson.json)
-   - After all agents complete, assemble the FULL lesson JSON (both phases merged)
+   - After all agents complete, assemble the FULL lesson JSON (both phases merged, no coding_challenge field)
    - Set `_generation_status: "complete"`
    - Write to `/Users/sumanthg/Documents/teach-me/.teach/next_lesson.json`
 6. Output: `⚡ Next lesson pre-generated: [Next Topic Title] — instant on next /teach`
@@ -648,8 +616,10 @@ After the completion output, pre-generate tomorrow's lesson for instant startup.
 | Problem | Response |
 |---|---|
 | `.teach/memory.json` missing | Create it fresh with the default schema (streak: 0, completed: [], in_progress: null, last_session_date: null, weak_areas: []). |
-| Streamlit not installed | "Run: `pip install -r /Users/sumanthg/Documents/teach-me/app/requirements.txt`" |
-| Port 8501 already in use | "Port 8501 is busy — Streamlit may already be running. Try: `open http://localhost:8501`" |
+| React dev server not running | Auto-started by the skill — check `/tmp/teach-react.log` if the page won't load |
+| FastAPI server not running | Auto-started by the skill — check `/tmp/teach-server.log` if API calls fail |
+| Port 5173 already in use | React already running — just open http://localhost:5173 |
+| Port 8001 already in use | FastAPI already running — no action needed |
 | ai-engineer agent fails to return valid JSON | Use the fallback topic defined in Step 2c and proceed normally. |
 
 ---

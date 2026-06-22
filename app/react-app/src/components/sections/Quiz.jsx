@@ -82,16 +82,16 @@ export default function Quiz({ lesson, goNext, goPrev, canGoPrev, canGoNext, qui
 
       {/* Progress */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '1.25rem' }}>
-        <div style={{ flex: 1, height: 3, background: 'rgba(255,255,255,0.06)', borderRadius: 99, overflow: 'hidden' }}>
-          <div style={{ width: `${Math.round(answered / total * 100)}%`, height: '100%', background: 'linear-gradient(90deg,var(--success),#00D4FF)' }} />
+        <div style={{ flex: 1, height: 3, background: 'rgba(0,0,0,0.06)', borderRadius: 99, overflow: 'hidden' }}>
+          <div style={{ width: `${Math.round(answered / total * 100)}%`, height: '100%', background: 'var(--success)' }} />
         </div>
-        <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '0.78rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>{answered}/{total}</span>
+        <span style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: '0.78rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>{answered}/{total}</span>
       </div>
 
       <div className="card">
         <div style={{ display: 'flex', gap: 10, marginBottom: '1rem', alignItems: 'center' }}>
-          <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '0.72rem', color: 'var(--text-muted)' }}>Q{qIdx + 1} of {total}</span>
-          <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '0.68rem', textTransform: 'uppercase', color: 'var(--accent)', background: 'rgba(124,92,255,0.1)', padding: '2px 8px', borderRadius: 5 }}>{qtype.replace(/_/g, ' ')}</span>
+          <span style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: '0.72rem', color: 'var(--text-muted)' }}>Q{qIdx + 1} of {total}</span>
+          <span style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: '0.68rem', textTransform: 'uppercase', color: 'var(--accent)', background: 'rgba(42,107,79,0.10)', padding: '2px 8px', borderRadius: 5 }}>{qtype.replace(/_/g, ' ')}</span>
         </div>
         {q.code && <pre style={{ marginBottom: '1rem' }}><code>{q.code}</code></pre>}
         <p style={{ color: 'var(--text-primary)', fontWeight: 600, fontSize: '1rem' }}>{q.question}</p>
@@ -126,11 +126,17 @@ export default function Quiz({ lesson, goNext, goPrev, canGoPrev, canGoNext, qui
           <button className="primary" onClick={() => { setRevealed(r => new Set([...r, qid])); setAnswers(a => ({ ...a, [qid]: 'open' })) }}>Show Answer</button>
         </div>
       )}
+      {qtype === 'open_ended' && isRevealed && q.answer && (
+        <div className="callout tip" style={{ marginTop: '0.75rem' }}>
+          <span className="callout-title">Answer</span>
+          <span style={{ fontSize: '0.95rem' }}>{q.answer}</span>
+        </div>
+      )}
 
       {isRevealed && q.explanation && (
         <div className="callout tip" style={{ marginTop: '0.75rem' }}>
-          <span className="callout-title">Explanation</span>
-          <span>{q.explanation}</span>
+          <span className="callout-title">Why</span>
+          <span style={{ fontSize: '0.95rem', lineHeight: 1.65 }}>{q.explanation}</span>
         </div>
       )}
 

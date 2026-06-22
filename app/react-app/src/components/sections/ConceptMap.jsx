@@ -15,6 +15,12 @@ export default function ConceptMap({ lesson, goNext, goPrev, canGoPrev, canGoNex
         </div>
       )}
 
+      {cm.diagram && (
+        <div style={{ marginTop: '1rem' }}>
+          <MermaidDiagram diagram={cm.diagram} />
+        </div>
+      )}
+
       {fitsWith.length > 0 && (
         <div style={{ marginTop: '1rem' }}>
           <h3>Related Topics</h3>
@@ -30,13 +36,6 @@ export default function ConceptMap({ lesson, goNext, goPrev, canGoPrev, canGoNex
               )
             })}
           </div>
-        </div>
-      )}
-
-      {cm.diagram && (
-        <div style={{ marginTop: '1rem' }}>
-          <h3>Diagram</h3>
-          <MermaidDiagram diagram={cm.diagram} />
         </div>
       )}
 

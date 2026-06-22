@@ -38,7 +38,7 @@ export default function Sidebar({ lesson, sections, sectionIdx, visited, mqScore
   }
 
   const diff = meta.difficulty || 'intermediate'
-  const diffColor = { intermediate: '#7C5CFF', advanced: '#FBBF24', expert: '#F87171' }[diff] || '#7C5CFF'
+  const diffColor = { intermediate: 'var(--accent)', advanced: 'var(--warning)', expert: 'var(--error)' }[diff] || 'var(--accent)'
   const quizTotal = (lesson.quiz || []).length
 
   return (
@@ -46,7 +46,7 @@ export default function Sidebar({ lesson, sections, sectionIdx, visited, mqScore
       <div className="sidebar-header">
         <div className="sidebar-title">{meta.title || "Today's Lesson"}</div>
         <div className="sidebar-meta">
-          <span style={{ fontFamily: 'JetBrains Mono', fontSize: '0.68rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: diffColor, background: 'rgba(124,92,255,0.1)', padding: '3px 9px', borderRadius: '999px', border: `1px solid ${diffColor}44` }}>{diff}</span>
+          <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: '0.68rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: diffColor, background: 'rgba(0,0,0,0.05)', padding: '3px 9px', borderRadius: '999px', border: '1px solid rgba(0,0,0,0.12)' }}>{diff}</span>
           <span style={{ marginLeft: 8 }}>~{meta.estimated_minutes || '?'} min</span>
         </div>
       </div>

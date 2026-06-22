@@ -20,7 +20,7 @@ export default function CoreConcept({ lesson, conceptIdx, goNext, goPrev, canGoP
 
       {concept.explanation && (
         <div className="card">
-          <p style={{ fontSize: '1.05rem', color: 'var(--text-primary)', lineHeight: 1.75 }}>{concept.explanation}</p>
+          <p style={{ fontSize: '1.05rem', color: 'var(--text-primary)', lineHeight: 1.8, maxWidth: '680px' }}>{concept.explanation}</p>
         </div>
       )}
 
@@ -33,10 +33,10 @@ export default function CoreConcept({ lesson, conceptIdx, goNext, goPrev, canGoP
 
       {concept.diagram && <MermaidDiagram diagram={concept.diagram} />}
 
-      {(concept.code_examples || []).length > 0 && (
+      {((concept.code_snippets || concept.code_examples || []).length > 0) && (
         <div style={{ marginTop: '1rem' }}>
           <h3>Code Examples</h3>
-          {concept.code_examples.map((ex, i) => <CodeBlock key={i} example={ex} />)}
+          {(concept.code_snippets || concept.code_examples || []).map((ex, i) => <CodeBlock key={i} example={ex} />)}
         </div>
       )}
 
@@ -71,7 +71,7 @@ export default function CoreConcept({ lesson, conceptIdx, goNext, goPrev, canGoP
                         <button className="warning" onClick={() => setMqScores(s => ({ ...s, [key]: 0 }))}>Missed it</button>
                       </div>
                     ) : (
-                      <div style={{ marginTop: '0.75rem', fontSize: '0.85rem', fontFamily: 'JetBrains Mono, monospace', color: score === 1 ? 'var(--success)' : 'var(--warning)' }}>
+                      <div style={{ marginTop: '0.75rem', fontSize: '0.85rem', fontFamily: 'IBM Plex Mono, monospace', color: score === 1 ? 'var(--success)' : 'var(--warning)' }}>
                         {score === 1 ? '● Got it' : '● Missed it — flagged for later'}
                       </div>
                     )}

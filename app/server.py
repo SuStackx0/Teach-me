@@ -19,7 +19,7 @@ app = FastAPI(title="teach-me API")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://localhost:4173"],
+    allow_origins=["http://localhost:5173", "http://localhost:4173", "http://localhost:8000"],
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -28,6 +28,20 @@ BASE = Path(__file__).parent.parent / ".teach"
 LESSON_PATH = BASE / "current_lesson.json"
 MEMORY_PATH = BASE / "memory.json"
 ARCHIVE_DIR = BASE / "archive"
+
+DOMAIN_DISPLAY = {
+    "llm-arch": "LLM Architecture",
+    "inference": "Inference & Serving",
+    "training": "Training & Alignment",
+    "agentic": "Agentic Systems",
+    "backend": "Backend Systems",
+    "system-design": "System Design",
+    "mlops": "MLOps",
+    "ml-ds": "ML/DS & Evaluation",
+    "cross-domain": "Cross-Domain",
+    "custom": "Custom Topics",
+}
+DOMAIN_ORDER = ["llm-arch", "inference", "training", "agentic", "ml-ds", "mlops", "backend", "system-design", "cross-domain", "custom"]
 
 
 def _read_json(path: Path) -> dict:
@@ -44,6 +58,67 @@ def get_lesson():
     return _read_json(LESSON_PATH)
 
 
+@app.get("/api/library")
+def get_library():
+    try:
+        memory = json.loads(MEMORY_PATH.read_text()) if MEMORY_PATH.exists() else {}
+    except json.JSONDecodeError:
+        memory = {}
+
+    completed = memory.get("completed", [])
+    streak = memory.get("streak", 0)
+
+    # Group by domain
+    groups_dict: dict = {}
+    for entry in completed:
+        domain_key = entry.get("domain", "")
+        if domain_key not in groups_dict:
+            groups_dict[domain_key] = []
+        slug = entry.get("slug", "")
+        archived = (ARCHIVE_DIR / f"{slug}.json").exists()
+        groups_dict[domain_key].append({
+            "slug": slug,
+            "title": entry.get("title", ""),
+            "date": entry.get("date", ""),
+            "quiz_score_pct": entry.get("quiz_score_pct"),
+            "time_spent_minutes": entry.get("time_spent_minutes", 0),
+            "difficulty": entry.get("difficulty", ""),
+            "archived": archived,
+        })
+
+    # Build ordered groups
+    groups = []
+    seen: set = set()
+    for key in DOMAIN_ORDER:
+        if key in groups_dict:
+            groups.append({
+                "domain": DOMAIN_DISPLAY.get(key, key),
+                "domain_key": key,
+                "lessons": groups_dict[key],
+            })
+            seen.add(key)
+    for key, lessons in groups_dict.items():
+        if key not in seen:
+            groups.append({
+                "domain": DOMAIN_DISPLAY.get(key, key) or "General",
+                "domain_key": key,
+                "lessons": lessons,
+            })
+
+    return {"groups": groups, "total": len(completed), "streak": streak}
+
+
+@app.get("/api/lesson/{slug}")
+def get_lesson_by_slug(slug: str):
+    path = ARCHIVE_DIR / f"{slug}.json"
+    if not path.exists():
+        raise HTTPException(status_code=404, detail="Lesson not found")
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as e:
+        raise HTTPException(status_code=500, detail=f"JSON parse error: {e}")
+
+
 @app.get("/api/memory")
 def get_memory():
     return _read_json(MEMORY_PATH)
@@ -56,6 +131,7 @@ class SessionLog(BaseModel):
     debrief_phrase: str = ""
     quiz_score_input: str = ""
     time_spent_minutes: float = 0.0
+    difficulty: str = ""
 
 
 @app.post("/api/session/log")
@@ -97,6 +173,16 @@ def log_session(payload: SessionLog):
         "notes": "",
         "next_review_date": next_review,
     }
+
+    # Read difficulty from current lesson file
+    difficulty = payload.difficulty
+    if not difficulty and LESSON_PATH.exists():
+        try:
+            lesson_data = json.loads(LESSON_PATH.read_text())
+            difficulty = lesson_data.get("meta", {}).get("difficulty", "")
+        except Exception:
+            pass
+    entry["difficulty"] = difficulty
 
     existing_slugs = [c.get("slug", "") for c in memory["completed"]]
     if payload.slug not in existing_slugs:

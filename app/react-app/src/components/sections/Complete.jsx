@@ -66,7 +66,7 @@ export default function Complete({ lesson, quizScore, startTime, goPrev }) {
   return (
     <div className="section-fade">
       <div className="score-hero">
-        <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.12em', color: 'var(--text-muted)', marginBottom: 12 }}>Session Complete</div>
+        <div style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.12em', color: 'var(--text-muted)', marginBottom: 12 }}>Session Complete</div>
         <div className="score-number">{quizScore}/{quizTotal}</div>
         <div style={{ color: 'var(--text-secondary)', marginTop: 6 }}>Quiz Score</div>
       </div>
@@ -77,7 +77,7 @@ export default function Complete({ lesson, quizScore, startTime, goPrev }) {
           <div className="stat-label">Quiz</div>
         </div>
         <div className="stat-card">
-          <div className="stat-value" style={{ color: '#00D4FF' }}>{elapsed(startTime)}</div>
+          <div className="stat-value" style={{ color: 'var(--accent)' }}>{elapsed(startTime)}</div>
           <div className="stat-label">Time Spent</div>
         </div>
         <div className="stat-card">
@@ -115,7 +115,7 @@ export default function Complete({ lesson, quizScore, startTime, goPrev }) {
       ) : (
         <div className="success-banner">
           <div style={{ fontSize: '1.5rem', marginBottom: 10 }}>{streak && streak >= 3 ? '🔥' : '✓'}</div>
-          <div style={{ fontFamily: 'Space Grotesk, sans-serif', fontSize: '1.2rem', fontWeight: 700, color: 'var(--success)', marginBottom: 8 }}>
+          <div style={{ fontFamily: 'IBM Plex Sans Condensed, system-ui, sans-serif', fontSize: '1.2rem', fontWeight: 700, color: 'var(--success)', marginBottom: 8 }}>
             {streak && streak > 1 ? `${streak} day streak` : 'Day 1 — let\'s build a streak'}
           </div>
           <div style={{ color: 'var(--text-secondary)', lineHeight: 1.6 }}>

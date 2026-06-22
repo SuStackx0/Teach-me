@@ -9,7 +9,7 @@ async function ensureMermaid() {
   mermaidInitialized = true
   try {
     const m = await import('mermaid')
-    m.default.initialize({ startOnLoad: false, theme: 'dark', fontFamily: 'JetBrains Mono, monospace' })
+    m.default.initialize({ startOnLoad: false, theme: 'default', fontFamily: 'IBM Plex Mono, monospace' })
     mermaidReady = true
     return true
   } catch {
