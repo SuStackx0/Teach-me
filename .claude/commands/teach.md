@@ -116,6 +116,17 @@ weak_areas_list = ", ".join([
     for w in memory.get('weak_areas', [])
     if not (isinstance(w, dict) and w.get('retired'))
 ]) or "None"
+
+# Build exclusion list: completed slugs + every slug ever presented to the user
+presented_slugs = memory.get('presented_slugs', [])
+excluded_slugs = [e['slug'] for e in memory['completed']] + presented_slugs
+excluded_slugs_str = ", ".join(excluded_slugs) if excluded_slugs else "None"
+
+# Rotation hint: use today's date + hour to steer the agent toward a fresh area
+# Compute a simple bucket: minute of the day mod 12 maps to one of 12 topic areas
+# Just pass the full datetime string — the agent uses it as a seed instruction
+import datetime
+rotation_hint = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 ```
 
 Spawn **one Agent** with **subagent_type `ai-engineer`** using this exact prompt (substitute the [PLACEHOLDERS]):
@@ -124,8 +135,13 @@ Spawn **one Agent** with **subagent_type `ai-engineer`** using this exact prompt
 You are an AI engineer curriculum designer. Generate exactly 3 diverse topic options for today's lesson.
 
 TODAY: [TODAY_DATE]
+ROTATION HINT: [ROTATION_HINT] — use this timestamp as a randomization seed. Pick topics from DIFFERENT areas of the domain than you would by default. Actively avoid the most obvious/common choices. Explore the full breadth of the domain list below.
+
 COMPLETED ([N_COMPLETED] topics so far):
 [COMPLETED_LIST]
+
+ALREADY PRESENTED TO USER — NEVER suggest any of these slugs again (user has already seen or rejected them):
+[EXCLUDED_SLUGS]
 
 WEAK AREAS (reinforce naturally if possible):
 [WEAK_AREAS_LIST]
@@ -166,16 +182,25 @@ Return ONLY a valid JSON array with exactly 3 objects, no markdown fences:
 ]
 ```
 
-Substitute: [TODAY_DATE] = today's date, [N_COMPLETED] = n_completed, [COMPLETED_LIST] = completed_list, [WEAK_AREAS_LIST] = weak_areas_list
+Substitute: [TODAY_DATE] = today's date, [N_COMPLETED] = n_completed, [COMPLETED_LIST] = completed_list, [WEAK_AREAS_LIST] = weak_areas_list, [EXCLUDED_SLUGS] = excluded_slugs_str, [ROTATION_HINT] = rotation_hint
 
-Parse the agent's JSON array response. If parse fails or array has fewer than 3 items, use this fallback array:
+Parse the agent's JSON array response. If parse fails or array has fewer than 3 items, pick 3 items from this expanded fallback pool (choose based on excluded_slugs — skip any that appear there):
 ```json
 [
   {"title": "Raft Consensus: Leader Election and Log Replication", "slug": "raft-consensus-internals", "domain": "system-design", "concepts": ["leader election", "log replication", "split-brain prevention"], "why_next": "Core distributed systems building block behind etcd, Kafka, and Kubernetes.", "difficulty": "intermediate", "estimated_minutes": 45},
   {"title": "Rate Limiting Algorithms: Token Bucket and Sliding Window", "slug": "rate-limiting-algorithms", "domain": "backend", "concepts": ["token bucket", "sliding window counter", "distributed rate limiting"], "why_next": "Every LLM inference API needs to protect GPU capacity with fair-use limits.", "difficulty": "intermediate", "estimated_minutes": 45},
-  {"title": "gRPC and Protobuf: Streaming and Service Contracts", "slug": "grpc-protobuf-streaming", "domain": "backend", "concepts": ["protobuf encoding", "unary vs streaming RPCs", "deadlines and cancellation"], "why_next": "gRPC is the dominant protocol for LLM serving backends and multi-service ML systems.", "difficulty": "intermediate", "estimated_minutes": 45}
+  {"title": "gRPC and Protobuf: Streaming and Service Contracts", "slug": "grpc-protobuf-streaming", "domain": "backend", "concepts": ["protobuf encoding", "unary vs streaming RPCs", "deadlines and cancellation"], "why_next": "gRPC is the dominant protocol for LLM serving backends and multi-service ML systems.", "difficulty": "intermediate", "estimated_minutes": 45},
+  {"title": "Consistent Hashing and Virtual Nodes", "slug": "consistent-hashing-virtual-nodes", "domain": "system-design", "concepts": ["hash ring", "virtual nodes for balance", "hotspot handling"], "why_next": "Used in every distributed cache and vector DB sharding scheme.", "difficulty": "intermediate", "estimated_minutes": 40},
+  {"title": "Kafka Fundamentals: Partitions, Consumer Groups, and Exactly-Once", "slug": "kafka-partitions-consumer-groups", "domain": "backend", "concepts": ["partition assignment", "consumer group rebalancing", "exactly-once semantics"], "why_next": "Kafka is the standard event bus for ML pipelines and inference logging.", "difficulty": "intermediate", "estimated_minutes": 45},
+  {"title": "Circuit Breakers and Resilience Patterns", "slug": "circuit-breakers-resilience", "domain": "backend", "concepts": ["closed/open/half-open states", "failure thresholds", "fallbacks and bulkheads"], "why_next": "Every multi-service AI backend needs circuit breakers to avoid cascade failures.", "difficulty": "intermediate", "estimated_minutes": 40},
+  {"title": "Observability: Distributed Tracing and RED Metrics", "slug": "observability-tracing-red-metrics", "domain": "system-design", "concepts": ["trace context propagation", "RED metrics (rate/errors/duration)", "OpenTelemetry instrumentation"], "why_next": "You can't debug latency in a multi-service LLM backend without traces.", "difficulty": "intermediate", "estimated_minutes": 45},
+  {"title": "CAP Theorem and Consistency Models in Practice", "slug": "cap-theorem-consistency-models", "domain": "system-design", "concepts": ["CAP vs PACELC", "eventual vs strong consistency", "real-world tradeoffs in Redis/Cassandra/etcd"], "why_next": "Every distributed state decision in agentic systems maps back to CAP tradeoffs.", "difficulty": "intermediate", "estimated_minutes": 45}
 ]
 ```
+
+**Before presenting options: write the 3 slugs to memory.json.**
+
+Read memory.json, append all 3 option slugs to `presented_slugs` (dedup — don't add if already present), write back. This ensures next `/teach` call excludes these options automatically.
 
 **Present the 3 options to the user and STOP:**
 
@@ -689,6 +714,7 @@ When using the picker, you can also type any topic name instead of 1/2/3 to over
       "source_slug": "transformer-micro-architecture"
     }
   ],
+  "presented_slugs": ["raft-consensus-internals", "rate-limiting-algorithms"],
   "preferences": {"depth": "expert", "session_minutes": 60, "focus_areas": ["ai-ml", "backend", "system-design"]},
   "learner": {"name": "Sumanth", "role": "AI Backend Engineer", "company": "uCube.ai"}
 }

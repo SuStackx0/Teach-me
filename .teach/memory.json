@@ -4,6 +4,15 @@
   "streak": 0,
   "last_session_date": null,
   "weak_areas": [],
+  "presented_slugs": [
+    "postgres-mvcc-snapshots-vacuum",
+    "rate-limiting-token-bucket-sliding-window",
+    "raft-consensus-leader-election-log-replication",
+    "postgresql-mvcc-snapshots-vacuum",
+    "redis-rdb-aof-persistence-internals",
+    "raft-consensus-internals",
+    "rate-limiting-algorithms-token-bucket-sliding-window"
+  ],
   "preferences": {
     "depth": "expert",
     "session_minutes": 45,
