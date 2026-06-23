@@ -23,72 +23,27 @@ export default function TopNav() {
   }, [dark])
 
   return (
-    <nav style={{
-      display: 'flex',
-      alignItems: 'center',
-      gap: '1.5rem',
-      padding: '0 1.5rem',
-      height: '48px',
-      background: 'var(--surface)',
-      borderBottom: '1px solid var(--border)',
-      position: 'sticky',
-      top: 0,
-      zIndex: 100,
-    }}>
-      <span style={{
-        fontFamily: "'IBM Plex Sans Condensed', system-ui, sans-serif",
-        fontWeight: 700,
-        fontSize: '1rem',
-        letterSpacing: '0',
-        color: 'var(--text-primary)',
-      }}>teach-me</span>
+    <nav className="topnav">
+      <span className="topnav-logo">teach-me</span>
 
-      <div style={{ display: 'flex', gap: '0.25rem' }}>
-        <NavLink to="/" end style={navStyle}>Today</NavLink>
-        <NavLink to="/library" style={navStyle}>Library</NavLink>
+      <div className="topnav-links">
+        <NavLink to="/" end className={({ isActive }) => 'topnav-link' + (isActive ? ' active' : '')}>Today</NavLink>
+        <NavLink to="/library" className={({ isActive }) => 'topnav-link' + (isActive ? ' active' : '')}>Library</NavLink>
       </div>
 
-      <div style={{ flex: 1 }} />
+      <div className="topnav-spacer" />
 
       {streak !== null && streak > 0 && (
-        <span style={{
-          fontFamily: "'IBM Plex Mono', monospace",
-          fontSize: '0.8rem',
-          color: 'var(--warning)',
-        }}>🔥 {streak}</span>
+        <span className="streak-pill">🔥 {streak}</span>
       )}
 
       <button
+        className="theme-toggle"
         onClick={() => setDark(d => !d)}
         title={dark ? 'Switch to light mode' : 'Switch to dark mode'}
-        style={{
-          background: 'none',
-          border: '1px solid var(--border)',
-          borderRadius: '6px',
-          padding: '4px 8px',
-          cursor: 'pointer',
-          fontSize: '0.95rem',
-          lineHeight: 1,
-          color: 'var(--text-muted)',
-          display: 'flex',
-          alignItems: 'center',
-        }}
       >
         {dark ? '☀︎' : '◑'}
       </button>
     </nav>
   )
-}
-
-function navStyle({ isActive }) {
-  return {
-    padding: '0.35rem 0.75rem',
-    borderRadius: '6px',
-    fontSize: '0.875rem',
-    fontWeight: isActive ? 600 : 400,
-    color: isActive ? 'var(--accent)' : 'var(--text-secondary)',
-    background: isActive ? 'rgba(42,107,79,0.10)' : 'transparent',
-    textDecoration: 'none',
-    transition: 'background 0.12s, color 0.12s',
-  }
 }
