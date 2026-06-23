@@ -37,15 +37,16 @@ After this, the server survives reboots and shell session ends. No need to keep 
 Open Claude Code in this directory and run:
 
 ```bash
-/teach                        # AI picks today's optimal topic
-/teach chunked prefill        # force a specific topic
+/teach                        # presents 3 topic options, you pick 1/2/3
+/teach chunked prefill        # skip the picker, generate that topic directly
 ```
 
 The skill:
 
-1. Selects today's topic (ai-engineer agent reads your history, balances domains)
-2. Generates a full lesson with parallel agents (concepts, quiz, insights)
-3. Opens `http://localhost:8001` in your browser
+1. Spawns an ai-engineer agent to generate **3 diverse topic options** from different domains
+2. Presents them — reply `1`, `2`, or `3` to choose (or type any topic to override)
+3. Generates the full lesson with parallel agents (concepts, quiz, insights)
+4. Opens `http://localhost:8001` in your browser
 
 Study the lesson, then come back to Claude Code and say **"done"** — your score, weak areas, and spaced repetition schedule are saved automatically.
 

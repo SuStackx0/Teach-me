@@ -2,7 +2,7 @@
 
 Generate and deliver a deep, expert-level lesson covering AI engineering, backend systems, and system design. Track progress and launch the React viewer.
 
-**Usage:** `/teach` (picks next topic) or `/teach [topic]` (e.g. `/teach speculative decoding internals`)
+**Usage:** `/teach` (presents 3 topic options, you pick) or `/teach [topic]` (e.g. `/teach speculative decoding internals`)
 
 ---
 
@@ -100,9 +100,9 @@ If any are due:
 - Use that text as-is (freeform — any topic the user wants to learn)
 - Set: title = the user topic text, slug = kebab-case version of it, domain = "custom", concepts = [], estimated_minutes = 45, difficulty = "advanced"
 - Output: `📖 Custom topic: [topic]. Generating lesson...`
-- Skip the agent selection below. Jump to Step 3.
+- Skip the agent selection and topic picker below. Jump to Step 3.
 
-**If no topic provided:**
+**If no topic provided — present 3 options and wait for user to pick:**
 
 Build context strings from memory.json:
 ```python
@@ -118,10 +118,10 @@ weak_areas_list = ", ".join([
 ]) or "None"
 ```
 
-Spawn an Agent with **subagent_type `ai-engineer`** using this exact prompt (substitute the [PLACEHOLDERS]):
+Spawn **one Agent** with **subagent_type `ai-engineer`** using this exact prompt (substitute the [PLACEHOLDERS]):
 
 ```
-You are an AI engineer curriculum designer selecting today's learning topic.
+You are an AI engineer curriculum designer. Generate exactly 3 diverse topic options for today's lesson.
 
 TODAY: [TODAY_DATE]
 COMPLETED ([N_COMPLETED] topics so far):
@@ -130,7 +130,7 @@ COMPLETED ([N_COMPLETED] topics so far):
 WEAK AREAS (reinforce naturally if possible):
 [WEAK_AREAS_LIST]
 
-FULL AI ENGINEER KNOWLEDGE DOMAIN — cover ALL of these over time:
+FULL AI ENGINEER KNOWLEDGE DOMAIN:
 - LLM Architecture: attention variants (GQA/MLA/MHA), quantization (GPTQ/AWQ/FP8/GGUF), speculative decoding (Medusa/EAGLE/SpecInfer), MoE routing & capacity factor, SSMs/Mamba selective scan, FlashAttention 2/3 tiling, positional encodings (RoPE/YaRN/ALiBi), pre-training objectives, tokenization internals (BPE/unigram/byte-level)
 - Inference & Serving: tensor/pipeline/sequence parallelism, KV cache eviction & quantization (KIVI/H2O), continuous batching internals, prefix caching, disaggregated prefill & chunked prefill (vLLM v2), Triton kernel writing, GPU profiling (roofline model, Nsight), torch.compile & CUDA graphs
 - Training & Alignment: RLHF, DPO, RLAIF, Constitutional AI, FSDP/ZeRO (stages 1/2/3), gradient checkpointing, scaling laws (Chinchilla/Kaplan), pre-training data curation (dedup, quality filtering), synthetic data & knowledge distillation, model merging (TIES/DARE/SLERP/task arithmetic), PEFT variants (QLoRA/DoRA/LoRA-FA)
@@ -139,56 +139,89 @@ FULL AI ENGINEER KNOWLEDGE DOMAIN — cover ALL of these over time:
 - MLOps: experiment tracking (MLflow/W&B), model versioning & registry, A/B testing for LLMs, shadow deployments, data/model drift detection, feedback loop design, CI/CD for ML pipelines, feature stores for ML
 - Backend Systems: PostgreSQL query planner & MVCC & VACUUM, Redis internals (RDB/AOF/clustering/Streams/Lua), Kafka (partitioning/consumer groups/exactly-once), rate limiting algorithms (token bucket/sliding window), circuit breakers & resilience patterns, gRPC & protobuf streaming, REST API design & versioning, database transactions & isolation levels (MVCC/SSI/write skew), caching strategies & invalidation at scale
 - System Design / HLD: distributed consensus (Raft/Paxos), consistent hashing & virtual nodes, CAP/PACELC & consistency models, event sourcing/CQRS, saga pattern & distributed transactions, microservices/DDD bounded contexts, Kubernetes scheduling & HPA/VPA, service mesh (Istio/Envoy), observability (OpenTelemetry/traces/RED metrics), SLOs & error budgets, HLD case studies (Twitter feed, Uber geo, YouTube CDN)
-- Cross-domain (HIGH VALUE — pick 1 in 5): vector DB internals (HNSW/IVF-PQ indexing), LLM serving system design end-to-end, streaming inference pipelines, AI feature stores, online learning systems, LLM eval infrastructure at scale, semantic caching architectures, multi-model deployment orchestration, speculative decoding meets continuous batching
+- Cross-domain (HIGH VALUE): vector DB internals (HNSW/IVF-PQ indexing), LLM serving system design end-to-end, streaming inference pipelines, AI feature stores, LLM eval infrastructure at scale, semantic caching architectures, speculative decoding meets continuous batching
 
-SELECTION RULES:
-1. NEVER repeat a completed topic. Check the COMPLETED list carefully — if a topic with the same or nearly the same slug or title appears, skip it entirely.
-2. FRESH START RULE: When n_completed == 0, you MUST pick from Backend Systems or System Design/HLD. Do NOT pick any LLM Architecture topic for the very first session.
-3. PREREQUISITE ORDERING (critical): Every topic you pick must have all its prerequisites already covered in the COMPLETED list, OR be a foundational topic with no prerequisites. If a topic requires prior knowledge of X and X is not in the completed list, do NOT pick that topic — pick X first (or a foundational topic from another domain instead). Example: do not pick "KV Cache Eviction Algorithms" before "Continuous Batching Internals" has been completed. Do not pick "FSDP/ZeRO Stage 3" before "Distributed Training Basics" is done. Foundational topics (e.g. "PostgreSQL MVCC", "Raft Consensus Basics", "Transformer Architecture", "HTTP/gRPC Fundamentals") have no prerequisites and are always safe to pick.
-4. DOMAIN ROTATION (most important): Rotate across all 9 domains. Never pick the same category (AI-heavy = llm-arch/inference/training/agentic) more than 2 sessions in a row. After 2 AI sessions, MUST pick backend, system-design, mlops, or ml-ds next.
-5. AIM FOR REAL MIX: roughly 1 in 3 sessions should be backend or system design, 1 in 3 AI/inference, 1 in 3 agentic/mlops/eval. Check last 3 completed domains — if all are AI-heavy, force a backend or HLD topic now.
-6. Difficulty: <10 done → intermediate, 10–25 → advanced, >25 → expert
-7. Cross-domain topics (e.g., "LLM serving system design" = AI + HLD): pick roughly 1 in 5 — high value
-8. Be specific — not "Attention Mechanisms" but "Transformer Self-Attention: Scaled Dot-Product and Why It Works"
-9. Session must fit in 30–60 minutes — pick topics that can be fully taught in that window, not sprawling overviews
+RULES FOR ALL 3 OPTIONS:
+1. NEVER repeat a completed topic.
+2. FRESH START RULE: When n_completed == 0, ALL 3 options MUST come from Backend Systems or System Design/HLD. Do NOT include any LLM Architecture, Inference, Training, Agentic, or MLOps topic.
+3. PREREQUISITE ORDERING: Every topic must have its prerequisites covered OR be a foundational topic with no prerequisites.
+4. The 3 options must be from 3 DIFFERENT domains (no two options from the same domain).
+5. Difficulty: <10 done → intermediate, 10–25 → advanced, >25 → expert
+6. Be specific — not "Attention Mechanisms" but "Transformer Self-Attention: Scaled Dot-Product and Why It Works"
+7. Each option must fit in 30–60 minutes.
 
-Return ONLY valid JSON, no markdown fences:
-{
-  "title": "Specific descriptive title",
-  "slug": "kebab-case-unique-slug",
-  "domain": "llm-arch|inference|training|agentic|ml-ds|mlops|backend|system-design|cross-domain",
-  "concepts": ["specific concept 1", "concept 2", "concept 3"],
-  "why_next": "1-2 direct sentences: why this fills a gap for him right now",
-  "difficulty": "intermediate|advanced|expert",
-  "estimated_minutes": 45
-}
+Return ONLY a valid JSON array with exactly 3 objects, no markdown fences:
+[
+  {
+    "title": "Specific descriptive title",
+    "slug": "kebab-case-unique-slug",
+    "domain": "llm-arch|inference|training|agentic|ml-ds|mlops|backend|system-design|cross-domain",
+    "concepts": ["specific concept 1", "concept 2", "concept 3"],
+    "why_next": "1-2 direct sentences: why this fills a gap for him right now",
+    "difficulty": "intermediate|advanced|expert",
+    "estimated_minutes": 45
+  },
+  { ... },
+  { ... }
+]
 ```
 
 Substitute: [TODAY_DATE] = today's date, [N_COMPLETED] = n_completed, [COMPLETED_LIST] = completed_list, [WEAK_AREAS_LIST] = weak_areas_list
 
-Parse the agent's JSON response. If parse fails, fallback:
-- title = "Raft Consensus: Leader Election and Log Replication"
-- slug = "raft-consensus-internals"
-- domain = "system-design"
-- concepts = ["leader election", "log replication", "split-brain prevention"]
-- why_next = "Core distributed systems building block behind etcd, Kafka, and Kubernetes — gaps here hurt HLD interviews."
-- difficulty = "intermediate"
-- estimated_minutes = 45
+Parse the agent's JSON array response. If parse fails or array has fewer than 3 items, use this fallback array:
+```json
+[
+  {"title": "Raft Consensus: Leader Election and Log Replication", "slug": "raft-consensus-internals", "domain": "system-design", "concepts": ["leader election", "log replication", "split-brain prevention"], "why_next": "Core distributed systems building block behind etcd, Kafka, and Kubernetes.", "difficulty": "intermediate", "estimated_minutes": 45},
+  {"title": "Rate Limiting Algorithms: Token Bucket and Sliding Window", "slug": "rate-limiting-algorithms", "domain": "backend", "concepts": ["token bucket", "sliding window counter", "distributed rate limiting"], "why_next": "Every LLM inference API needs to protect GPU capacity with fair-use limits.", "difficulty": "intermediate", "estimated_minutes": 45},
+  {"title": "gRPC and Protobuf: Streaming and Service Contracts", "slug": "grpc-protobuf-streaming", "domain": "backend", "concepts": ["protobuf encoding", "unary vs streaming RPCs", "deadlines and cancellation"], "why_next": "gRPC is the dominant protocol for LLM serving backends and multi-service ML systems.", "difficulty": "intermediate", "estimated_minutes": 45}
+]
+```
 
-Output: `🤖 Today's topic: [title]`
+**Present the 3 options to the user and STOP:**
 
-**Fast-path check (run after topic is determined, before Step 3):**
+Output exactly this block:
+
+```
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Pick today's topic:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1️⃣  [option[0].title]
+   ~[option[0].estimated_minutes] min · [option[0].difficulty] · [option[0].domain]
+   [option[0].why_next]
+
+2️⃣  [option[1].title]
+   ~[option[1].estimated_minutes] min · [option[1].difficulty] · [option[1].domain]
+   [option[1].why_next]
+
+3️⃣  [option[2].title]
+   ~[option[2].estimated_minutes] min · [option[2].difficulty] · [option[2].domain]
+   [option[2].why_next]
+
+Reply 1, 2, or 3 — or type any topic to use something else entirely.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+```
+
+**STOP HERE. Do NOT proceed until the user replies.**
+
+When the user replies:
+- "1", "2", or "3": use that option's full JSON object as the chosen topic
+- Any other text: treat as a custom topic override (title = that text, slug = kebab-case of it, domain = "custom", concepts = [], estimated_minutes = 45, difficulty = "advanced")
+
+Output: `🤖 Going with: [chosen title]`
+
+**Fast-path check (run after user picks, before Step 3):**
 
 Check if `/Users/sumanthg/Documents/teach-me/.teach/next_lesson.json` exists:
 - Read it and check `meta.slug`
-- If `meta.slug` matches the selected topic slug:
+- If `meta.slug` matches the chosen topic slug:
   - Copy `next_lesson.json` → `current_lesson.json` (use the Write tool: read next_lesson.json, write its content to current_lesson.json)
   - Delete `next_lesson.json` (run `rm /Users/sumanthg/Documents/teach-me/.teach/next_lesson.json`)
   - Update `memory.json`: set `in_progress` to the topic slug
   - Output: `⚡ Lesson pre-generated — instant launch!`
-  - Skip Steps 3 and 4 entirely. Jump to Step 5 (launch Streamlit).
-  - If the copied lesson has `_generation_status: "complete"`: after launching Streamlit, skip assessment generation and go straight to Step 5 (deliver summary).
-  - If `_generation_status: "generating_assessments"`: after launching Streamlit, run Step 4d (parallel assessment agents) as normal.
+  - Skip Steps 3 and 4 entirely. Jump to Step 5 (launch server).
+  - If the copied lesson has `_generation_status: "complete"`: after launching, skip assessment generation and go straight to Step 5 (deliver summary).
+  - If `_generation_status: "generating_assessments"`: after launching, run Step 4d (parallel assessment agents) as normal.
 - If file does not exist or slug does not match: proceed normally through Steps 3 and 4.
 
 ---
@@ -617,12 +650,13 @@ The skill accepts one optional positional argument: any topic description (freef
 
 | Invocation | Behavior |
 |---|---|
-| `/teach` | ai-engineer agent selects today's optimal topic based on your history |
-| `/teach speculative decoding internals` | Generates a lesson on that exact topic |
-| `/teach gRPC for LLM serving` | Generates a cross-domain lesson on that topic |
-| `/teach [any topic]` | Generates a lesson on any topic you specify |
+| `/teach` | Presents 3 diverse topic options (from different domains), waits for you to pick 1, 2, or 3 |
+| `/teach speculative decoding internals` | Skips the picker, generates a lesson on that exact topic immediately |
+| `/teach gRPC for LLM serving` | Skips the picker, generates a cross-domain lesson on that topic |
+| `/teach [any topic]` | Skips the picker, generates a lesson on any topic you specify |
 
-When a topic is provided, the ai-engineer selection is skipped and a lesson is generated directly.
+When a topic is provided directly, the picker is skipped and generation starts immediately.
+When using the picker, you can also type any topic name instead of 1/2/3 to override the suggestions.
 
 ---
 
