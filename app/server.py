@@ -7,6 +7,7 @@ Run:
 """
 
 import json
+import os
 import shutil
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -26,7 +27,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-BASE = Path(__file__).parent.parent / ".teach"
+BASE = Path(os.getenv("TEACH_DATA_DIR", str(Path(__file__).parent.parent / ".teach")))
 LESSON_PATH = BASE / "current_lesson.json"
 MEMORY_PATH = BASE / "memory.json"
 ARCHIVE_DIR = BASE / "archive"
@@ -50,7 +51,20 @@ def _read_json(path: Path) -> dict:
     if not path.exists():
         raise HTTPException(status_code=404, detail=f"{path.name} not found")
     try:
-        return json.loads(path.read_text(encoding="utf-8"))
+        text = path.read_text(encoding="utf-8")
+    except OSError:
+        # APFS-compressed/dataless files cause EDEADLK in Docker — rewrite to hydrate
+        try:
+            import tempfile
+            data = json.loads(path.read_bytes())
+            tmp = path.with_suffix(".tmp")
+            tmp.write_text(json.dumps(data), encoding="utf-8")
+            tmp.replace(path)
+            return data
+        except Exception as e:
+            raise HTTPException(status_code=503, detail=f"File read error: {e}")
+    try:
+        return json.loads(text)
     except json.JSONDecodeError as e:
         raise HTTPException(status_code=500, detail=f"JSON parse error: {e}")
 
@@ -238,7 +252,7 @@ def chat_placeholder():
 
 
 # Serve React build — must come after all API routes
-DIST = Path(__file__).parent / "react-app" / "dist"
+DIST = Path(os.getenv("REACT_DIST_DIR", str(Path(__file__).parent / "react-app" / "dist")))
 if DIST.exists():
     app.mount("/assets", StaticFiles(directory=str(DIST / "assets")), name="assets")
 

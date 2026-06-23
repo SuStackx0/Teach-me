@@ -1,0 +1,12 @@
+services:
+  teachme:
+    build: ./app
+    ports:
+      - "8001:8001"
+    volumes:
+      - ./.teach:/app/.teach
+      - ./app/react-app/dist:/app/react-app/dist
+    environment:
+      - TEACH_DATA_DIR=/app/.teach
+      - REACT_DIST_DIR=/app/react-app/dist
+    restart: unless-stopped

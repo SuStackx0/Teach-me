@@ -76,21 +76,20 @@ If any are due:
   }
   ```
 - Update `memory.json`: set `in_progress` to `"review-[slug]"`
-- Start servers if not already running:
+- Start server if not already running:
   ```bash
-  lsof -i :8001 | grep LISTEN || (cd /Users/sumanthg/Documents/teach-me/app && uvicorn server:app --port 8001 > /tmp/teach-server.log 2>&1 &)
-  lsof -i :5173 | grep LISTEN || (cd /Users/sumanthg/Documents/teach-me/app/react-app && npm run dev > /tmp/teach-vite.log 2>&1 &)
-  sleep 4
-  lsof -i :5173 | grep LISTEN
+  lsof -i :8001 | grep LISTEN || (cd /Users/sumanthg/Documents/teach-me && docker compose up -d)
+  sleep 2
+  lsof -i :8001 | grep LISTEN
   ```
-- If 5173 is up, open it:
+- If 8001 is up, open it:
   ```bash
-  open http://localhost:5173
+  open http://localhost:8001
   ```
-- If 5173 is NOT up, output: `⚠️  Run in terminal: cd app/react-app && npm run dev` and stop.
+- If 8001 is NOT up, output: `⚠️  Run in terminal: cd /Users/sumanthg/Documents/teach-me && docker compose up -d` and stop.
 - Output:
   ```
-  ⚡ Review session live — http://localhost:5173
+  ⚡ Review session live — http://localhost:8001
      Come back and say "done" when finished.
   ```
 - **Stop here. Do NOT start a new lesson today.** Reviews take priority over new content — same as Anki.
@@ -326,29 +325,28 @@ Update `memory.json`: set `in_progress` to the topic slug.
 
 Output: `Phase 1 written · starting servers...`
 
-Check and start servers:
+Check and start server:
 ```bash
-lsof -i :8001 | grep LISTEN || (cd /Users/sumanthg/Documents/teach-me/app && uvicorn server:app --port 8001 > /tmp/teach-server.log 2>&1 &)
-lsof -i :5173 | grep LISTEN || (cd /Users/sumanthg/Documents/teach-me/app/react-app && npm run dev > /tmp/teach-vite.log 2>&1 &)
-sleep 4
-lsof -i :5173 | grep LISTEN
+lsof -i :8001 | grep LISTEN || (cd /Users/sumanthg/Documents/teach-me && docker compose up -d)
+sleep 2
+lsof -i :8001 | grep LISTEN
 ```
 
-If port 5173 is up after the sleep, open it:
+If port 8001 is up after the sleep, open it:
 ```bash
-open http://localhost:5173
+open http://localhost:8001
 ```
 
-If port 5173 is NOT up after the sleep, output this message and stop:
+If port 8001 is NOT up after the sleep, output this message and stop:
 ```
-⚠️  React dev server didn't start automatically.
-Run this in a terminal: cd /Users/sumanthg/Documents/teach-me/app/react-app && npm run dev
-Then open: http://localhost:5173
+⚠️  Server didn't start automatically.
+Run this in a terminal: cd /Users/sumanthg/Documents/teach-me && docker compose up -d
+Then open: http://localhost:8001
 ```
 
 Output:
 ```
-⚡ http://localhost:5173 — study this, come back and say "done" when finished.
+⚡ http://localhost:8001 — study this, come back and say "done" when finished.
    Assessment agents generating in background...
 ```
 
@@ -441,7 +439,7 @@ Why this topic:
 
 Difficulty: [difficulty]  ·  ~[X] min
 
-🌐  http://localhost:5173
+🌐  http://localhost:8001
 
 Sections you'll work through:
   ⚡ Hook → 🗺️ Concept Map → 🧠 Core Concepts × [N]
@@ -608,7 +606,7 @@ After the completion output, pre-generate tomorrow's lesson for instant startup.
 |---|---|
 | `.teach/memory.json` missing | Create it fresh with the default schema (streak: 0, completed: [], in_progress: null, last_session_date: null, weak_areas: []). |
 | Server not running | Auto-started by the skill — check `/tmp/teach-server.log` if the page won't load |
-| Port 8001 already in use | API server already running — just open http://localhost:5173 |
+| Port 8001 already in use | API server already running — just open http://localhost:8001 |
 | ai-engineer agent fails to return valid JSON | Use the fallback topic defined in Step 2c and proceed normally. |
 
 ---
