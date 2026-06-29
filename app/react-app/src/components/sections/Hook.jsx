@@ -1,3 +1,5 @@
+import MarkdownText from '../MarkdownText.jsx'
+
 export default function Hook({ lesson, goNext, goPrev, canGoPrev, canGoNext }) {
   const hook = lesson.hook || {}
   const meta = lesson.meta || {}
@@ -10,14 +12,14 @@ export default function Hook({ lesson, goNext, goPrev, canGoPrev, canGoNext }) {
       <h1>{meta.title || "Today's Lesson"}</h1>
 
       <div className="card" style={{ marginTop: '1.25rem' }}>
-        {hook.problem && <p style={{ color: 'var(--text-primary)', fontWeight: 600, fontSize: '1.05rem', marginBottom: '0.75rem' }}>{hook.problem}</p>}
-        {hook.narrative && <p style={{ fontSize: '1rem' }}>{hook.narrative}</p>}
+        {hook.problem && <MarkdownText text={hook.problem} style={{ color: 'var(--text-primary)', fontWeight: 600, fontSize: '1.05rem', marginBottom: '0.75rem' }} />}
+        {hook.narrative && <MarkdownText text={hook.narrative} style={{ fontSize: '1rem' }} />}
       </div>
 
       {hook.why_it_matters && (
         <div className="callout insight">
           <span className="callout-title">Why This Matters</span>
-          <span>{hook.why_it_matters}</span>
+          <MarkdownText text={hook.why_it_matters} />
         </div>
       )}
 

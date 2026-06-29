@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import MermaidDiagram from '../MermaidDiagram.jsx'
 import CodeBlock from '../CodeBlock.jsx'
+import MarkdownText from '../MarkdownText.jsx'
 
 export default function CoreConcept({ lesson, conceptIdx, goNext, goPrev, canGoPrev, canGoNext, mqScores, setMqScores }) {
   const concepts = lesson.core_concepts || []
@@ -20,14 +21,14 @@ export default function CoreConcept({ lesson, conceptIdx, goNext, goPrev, canGoP
 
       {concept.explanation && (
         <div className="card">
-          <p style={{ fontSize: '1.05rem', color: 'var(--text-primary)', lineHeight: 1.8, maxWidth: '680px' }}>{concept.explanation}</p>
+          <MarkdownText text={concept.explanation} style={{ fontSize: '1.05rem', color: 'var(--text-primary)', maxWidth: '680px' }} />
         </div>
       )}
 
       {concept.analogy && (
         <div className="callout tip">
           <span className="callout-title">Analogy</span>
-          <span>{concept.analogy}</span>
+          <MarkdownText text={concept.analogy} />
         </div>
       )}
 
@@ -57,12 +58,12 @@ export default function CoreConcept({ lesson, conceptIdx, goNext, goPrev, canGoP
                   <>
                     <div className="callout tip mq-answer">
                       <span className="callout-title">Answer</span>
-                      <span>{mq.answer}</span>
+                      <MarkdownText text={mq.answer} />
                     </div>
                     {mq.explanation && (
                       <div className="callout insight">
                         <span className="callout-title">Why it matters</span>
-                        <span>{mq.explanation}</span>
+                        <MarkdownText text={mq.explanation} />
                       </div>
                     )}
                     {score === undefined ? (

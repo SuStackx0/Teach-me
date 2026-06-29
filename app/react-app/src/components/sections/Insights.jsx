@@ -1,3 +1,5 @@
+import MarkdownText from '../MarkdownText.jsx'
+
 export default function Insights({ lesson, goNext, goPrev, canGoPrev, canGoNext }) {
   const status = lesson._generation_status || 'complete'
   const insights = lesson.key_insights || []
@@ -30,7 +32,7 @@ export default function Insights({ lesson, goNext, goPrev, canGoPrev, canGoNext 
           return (
             <div key={i} className={`callout ${kind}`}>
               <span className="callout-title">{icons[item.kind] || '💡'} {item.title}</span>
-              <span>{item.text}</span>
+              <MarkdownText text={item.text} />
             </div>
           )
         })
