@@ -29,6 +29,7 @@ export default function TopNav() {
       <div className="topnav-links">
         <NavLink to="/" end className={({ isActive }) => 'topnav-link' + (isActive ? ' active' : '')}>Today</NavLink>
         <NavLink to="/library" className={({ isActive }) => 'topnav-link' + (isActive ? ' active' : '')}>Library</NavLink>
+        <NavLink to="/stats" className={({ isActive }) => 'topnav-link' + (isActive ? ' active' : '')}>Stats</NavLink>
       </div>
 
       <div className="topnav-spacer" />

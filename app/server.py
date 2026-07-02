@@ -31,6 +31,7 @@ BASE = Path(os.getenv("TEACH_DATA_DIR", str(Path(__file__).parent.parent / ".tea
 LESSON_PATH = BASE / "current_lesson.json"
 MEMORY_PATH = BASE / "memory.json"
 ARCHIVE_DIR = BASE / "archive"
+CURRICULUM_PATH = BASE / "curriculum-v2.json"
 
 DOMAIN_DISPLAY = {
     "llm-arch": "LLM Architecture",
@@ -138,6 +139,153 @@ def get_lesson_by_slug(slug: str):
 @app.get("/api/memory")
 def get_memory():
     return _read_json(MEMORY_PATH)
+
+
+def _load_json_safe(path: Path) -> dict:
+    try:
+        if not path.exists():
+            return {}
+        return json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+
+
+@app.get("/api/stats")
+def get_stats():
+    memory = _load_json_safe(MEMORY_PATH)
+    curriculum = _load_json_safe(CURRICULUM_PATH)
+
+    completed = memory.get("completed", []) if isinstance(memory, dict) else []
+    if not isinstance(completed, list):
+        completed = []
+    streak = memory.get("streak", 0) if isinstance(memory, dict) else 0
+
+    tracks_raw = curriculum.get("tracks", []) if isinstance(curriculum, dict) else []
+    if not isinstance(tracks_raw, list):
+        tracks_raw = []
+    mix_targets = curriculum.get("mix_targets", {}) if isinstance(curriculum, dict) else {}
+    if not isinstance(mix_targets, dict):
+        mix_targets = {}
+
+    # Map slug -> track id, using the curriculum ladder
+    slug_to_track: dict = {}
+    for t in tracks_raw:
+        if not isinstance(t, dict):
+            continue
+        track_id = t.get("id", "")
+        ladder = t.get("ladder", [])
+        if not isinstance(ladder, list):
+            continue
+        for item in ladder:
+            if isinstance(item, dict) and item.get("slug"):
+                slug_to_track[item["slug"]] = track_id
+
+    completed_count_by_track: dict = {}
+    for entry in completed:
+        if not isinstance(entry, dict):
+            continue
+        slug = entry.get("slug", "")
+        track_id = slug_to_track.get(slug)
+        if track_id:
+            completed_count_by_track[track_id] = completed_count_by_track.get(track_id, 0) + 1
+
+    total_completed_in_tracks = sum(completed_count_by_track.values())
+
+    tracks_out = []
+    for t in tracks_raw:
+        if not isinstance(t, dict):
+            continue
+        track_id = t.get("id", "")
+        title = t.get("title", track_id)
+        ladder = t.get("ladder", [])
+        total = len(ladder) if isinstance(ladder, list) else 0
+        completed_n = completed_count_by_track.get(track_id, 0)
+        target_pct = mix_targets.get(track_id)
+        actual_pct = (completed_n / total_completed_in_tracks) if total_completed_in_tracks > 0 else 0
+        tracks_out.append({
+            "id": track_id,
+            "title": title,
+            "completed": completed_n,
+            "total": total,
+            "target_pct": target_pct,
+            "actual_pct": actual_pct,
+        })
+
+    # Score trend — completed sorted by date, nulls included
+    def _sort_key(entry):
+        return entry.get("date") or ""
+
+    score_trend = []
+    for entry in sorted((e for e in completed if isinstance(e, dict)), key=_sort_key):
+        score_trend.append({
+            "date": entry.get("date"),
+            "title": entry.get("title", ""),
+            "score_pct": entry.get("quiz_score_pct"),
+        })
+
+    # Weak areas
+    weak_areas_raw = memory.get("weak_areas", []) if isinstance(memory, dict) else []
+    if not isinstance(weak_areas_raw, list):
+        weak_areas_raw = []
+    today = datetime.now().date()
+    weak_areas = []
+    for w in weak_areas_raw:
+        if isinstance(w, str):
+            weak_areas.append({"phrase": w, "age_days": None, "reinforced_count": 0, "retired": False})
+            continue
+        if not isinstance(w, dict):
+            continue
+        flagged_date = w.get("flagged_date")
+        age_days = None
+        if flagged_date:
+            try:
+                age_days = (today - datetime.strptime(flagged_date, "%Y-%m-%d").date()).days
+            except Exception:
+                age_days = None
+        weak_areas.append({
+            "phrase": w.get("phrase", ""),
+            "age_days": age_days,
+            "reinforced_count": w.get("reinforced_count", 0),
+            "retired": w.get("retired", False),
+        })
+
+    # Review debt — from next_review_date on completed entries
+    overdue = []
+    next_7_days = []
+    for entry in completed:
+        if not isinstance(entry, dict):
+            continue
+        due = entry.get("next_review_date")
+        if not due:
+            continue
+        try:
+            due_date = datetime.strptime(due, "%Y-%m-%d").date()
+        except Exception:
+            continue
+        item = {"slug": entry.get("slug", ""), "title": entry.get("title", ""), "due": due}
+        if due_date < today:
+            overdue.append(item)
+        elif due_date <= today + timedelta(days=7):
+            next_7_days.append(item)
+
+    overdue.sort(key=lambda x: x["due"])
+    next_7_days.sort(key=lambda x: x["due"])
+
+    requiz_queue = memory.get("requiz_queue", []) if isinstance(memory, dict) else []
+    if not isinstance(requiz_queue, list):
+        requiz_queue = []
+
+    return {
+        "tracks": tracks_out,
+        "score_trend": score_trend,
+        "weak_areas": weak_areas,
+        "review_debt": {
+            "overdue": overdue,
+            "next_7_days": next_7_days,
+        },
+        "streak": streak if isinstance(streak, int) else 0,
+        "requiz_queue": requiz_queue,
+    }
 
 
 class SessionLog(BaseModel):

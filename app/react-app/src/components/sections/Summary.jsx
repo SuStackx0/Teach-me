@@ -2,6 +2,7 @@ export default function Summary({ lesson, goNext, goPrev, canGoPrev, canGoNext }
   const status = lesson._generation_status || 'complete'
   const summary = lesson.summary || {}
   const further = lesson.further_reading || []
+  const kata = lesson.design_kata
 
   if (status !== 'complete' && !summary.one_liner) {
     return (
@@ -37,6 +38,13 @@ export default function Summary({ lesson, goNext, goPrev, canGoPrev, canGoNext }
               <span>{t}</span>
             </div>
           ))}
+        </div>
+      )}
+
+      {kata && kata.prompt && (
+        <div className="apply-it-card" style={{ marginTop: '1.5rem' }}>
+          <div className="apply-it-label">Apply It</div>
+          <p style={{ color: 'var(--text-primary)', lineHeight: 1.7 }}>{kata.prompt}</p>
         </div>
       )}
 
