@@ -57,23 +57,36 @@ export default function Quiz({ lesson, goNext, goPrev, canGoPrev, canGoNext, qui
   const qid = q.id ?? qIdx
   const qtype = q.type || 'multiple_choice'
   const isRevealed = revealed.has(qid)
-  const correctAnswer = String(q.answer || '').trim().toLowerCase()
   const accepted = (q.accepted_answers || [q.answer]).map(a => String(a).trim().toLowerCase())
   const userAnswer = answers[qid]
-  const allAnswered = revealed.size >= total
+
+  function optionKey(opt) { return String(opt).trim().charAt(0).toLowerCase() }
 
   function submitAnswer(opt) {
     if (isRevealed) return
     setAnswers(a => ({ ...a, [qid]: opt }))
     setRevealed(r => new Set([...r, qid]))
-    if (String(opt).trim().toLowerCase() in Object.fromEntries(accepted.map(a => [a, true]))) {
+    if (accepted.includes(optionKey(opt))) {
       setQuizScore(s => s + 1)
     }
   }
 
-  function isCorrect(opt) { return accepted.includes(String(opt).trim().toLowerCase()) }
+  function skipQuestion() {
+    if (isRevealed) return
+    setAnswers(a => ({ ...a, [qid]: '__skipped__' }))
+    setRevealed(r => new Set([...r, qid]))
+    // no score increment for skipped
+  }
 
-  const options = q.options || (qtype === 'true_false' ? ['True', 'False'] : [])
+  function advanceQuestion() {
+    if (qIdx < total - 1) setQIdx(i => i + 1)
+    else setQIdx(total)
+  }
+
+  function isCorrect(opt) { return accepted.includes(optionKey(opt)) }
+
+  const options = q.options || (qtype === 'true_false' ? ['A. True', 'B. False'] : [])
+  const isSkipped = answers[qid] === '__skipped__'
 
   return (
     <div className="section-fade">
@@ -97,22 +110,22 @@ export default function Quiz({ lesson, goNext, goPrev, canGoPrev, canGoNext, qui
         <p style={{ color: 'var(--text-primary)', fontWeight: 600, fontSize: '1rem' }}>{q.question}</p>
       </div>
 
-      {/* MCQ / true_false / code_reading */}
-      {['multiple_choice', 'true_false', 'code_reading', 'mcq'].includes(qtype) && options.length > 0 && (
+      {/* Options — all types with options array */}
+      {options.length > 0 && (
         <div style={{ marginTop: '0.75rem' }}>
           {options.map((opt, i) => {
             const correct = isCorrect(opt)
             const selected = userAnswer === opt
             let cls = 'quiz-option'
-            if (isRevealed) {
+            if (isRevealed && !isSkipped) {
               if (correct) cls += ' correct'
               else if (selected) cls += ' wrong'
               else cls += ' neutral'
             }
             return (
               <button key={i} className={cls} onClick={() => submitAnswer(opt)} disabled={isRevealed}>
-                {isRevealed && correct && <span style={{ marginRight: 8, fontWeight: 700 }}>✓</span>}
-                {isRevealed && selected && !correct && <span style={{ marginRight: 8, fontWeight: 700 }}>✗</span>}
+                {isRevealed && !isSkipped && correct && <span style={{ marginRight: 8, fontWeight: 700 }}>✓</span>}
+                {isRevealed && !isSkipped && selected && !correct && <span style={{ marginRight: 8, fontWeight: 700 }}>✗</span>}
                 {opt}
               </button>
             )
@@ -120,36 +133,42 @@ export default function Quiz({ lesson, goNext, goPrev, canGoPrev, canGoNext, qui
         </div>
       )}
 
-      {/* Open ended */}
-      {qtype === 'open_ended' && !isRevealed && (
+      {/* Open ended or unknown type with no options */}
+      {options.length === 0 && !isRevealed && (
         <div style={{ marginTop: '0.75rem' }}>
           <button className="primary" onClick={() => { setRevealed(r => new Set([...r, qid])); setAnswers(a => ({ ...a, [qid]: 'open' })) }}>Show Answer</button>
         </div>
       )}
-      {qtype === 'open_ended' && isRevealed && q.answer && (
-        <div className="callout tip" style={{ marginTop: '0.75rem' }}>
-          <span className="callout-title">Answer</span>
-          <span style={{ fontSize: '0.95rem' }}>{q.answer}</span>
+
+      {/* Skip button — always visible before answering */}
+      {!isRevealed && (
+        <div style={{ marginTop: '0.5rem' }}>
+          <button onClick={skipQuestion} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: '0.8rem', cursor: 'pointer', padding: '4px 0', textDecoration: 'underline' }}>
+            Skip →
+          </button>
         </div>
       )}
 
-      {isRevealed && q.explanation && (
+      {isSkipped && (
+        <div style={{ marginTop: '0.75rem', fontSize: '0.88rem', color: 'var(--text-muted)' }}>Skipped.</div>
+      )}
+
+      {isRevealed && !isSkipped && q.explanation && (
         <div className="callout tip" style={{ marginTop: '0.75rem' }}>
           <span className="callout-title">Why</span>
           <span style={{ fontSize: '0.95rem', lineHeight: 1.65 }}>{q.explanation}</span>
         </div>
       )}
 
-      {isRevealed && qIdx < total - 1 && (
-        <button className="primary" style={{ marginTop: '0.75rem' }} onClick={() => setQIdx(i => i + 1)}>Next Question →</button>
-      )}
-      {isRevealed && qIdx === total - 1 && (
-        <button className="primary" style={{ marginTop: '0.75rem' }} onClick={() => setQIdx(total)}>Finish Quiz →</button>
+      {isRevealed && (
+        <button className="primary" style={{ marginTop: '0.75rem' }} onClick={advanceQuestion}>
+          {qIdx < total - 1 ? 'Next Question →' : 'Finish Quiz →'}
+        </button>
       )}
 
       <div className="nav-row">
         <button onClick={goPrev} disabled={!canGoPrev}>← Back</button>
-        <button className="primary" onClick={goNext} disabled={!canGoNext || !allAnswered}>Next Section →</button>
+        <button className="primary" onClick={goNext} disabled={!canGoNext || answered === 0}>Next Section →</button>
       </div>
     </div>
   )
