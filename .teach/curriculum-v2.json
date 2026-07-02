@@ -1,0 +1,571 @@
+{
+  "version": 2.1,
+  "goal": "Become a strong system designer in backend + AI infrastructure",
+  "mix_targets": {
+    "distributed-core": 0.25,
+    "backend-scale": 0.2,
+    "ai-infra-design": 0.3,
+    "wildcard": 0.25
+  },
+  "capstone_cadence": 5,
+  "picker_rules": {
+    "principle": "Nothing is ever locked. All topics are always pickable, and free-typed custom topics always work. The graph only shapes SCORING of the 3 presented options.",
+    "scoring": {
+      "momentum": "graph distance to the last 1-3 completed sessions (builds_on + related edges, both directions). Did LLM-as-judge yesterday -> eval-infra-at-scale scores high today.",
+      "coverage_gap": "how far the topic's track is below its mix_target given completed history",
+      "weak_area_overlap": "topic concepts overlap with non-retired weak_areas",
+      "readiness": "fraction of builds_on topics completed. LOW readiness reduces score but never blocks \u2014 if picked cold, the lesson backfills the missing fundamentals inline",
+      "review_synergy": "small boost if the topic naturally exercises material due for spaced review",
+      "noise": "rotation-seeded randomness so options stay fresh"
+    },
+    "option_1": "momentum pick \u2014 highest graph-relevance to what you studied most recently",
+    "option_2": "gap pick \u2014 highest coverage_gap + weak_area score, from a different track than option 1",
+    "option_3": "wildcard \u2014 noise-weighted draw from anywhere",
+    "override": "typing any custom topic still bypasses everything, unchanged from today"
+  },
+  "tracks": [
+    {
+      "id": "distributed-core",
+      "title": "Distributed Systems Core",
+      "why": "The vocabulary and building blocks every HLD answer is assembled from. Zero coverage so far \u2014 this is the biggest gap.",
+      "ladder": [
+        {
+          "slug": "storage-engines-btree-lsm-wal",
+          "title": "Storage Engines: B-Trees vs LSM Trees, WAL, and Compaction",
+          "concepts": [
+            "B-tree page splits and write amplification",
+            "LSM memtable/SSTable/compaction tradeoffs",
+            "WAL and crash recovery",
+            "why RocksDB vs Postgres heap"
+          ],
+          "difficulty": "intermediate",
+          "estimated_minutes": 45,
+          "status": "available",
+          "builds_on": []
+        },
+        {
+          "slug": "replication-consistency-models-quorums",
+          "title": "Replication & Consistency: Leader/Follower, Quorums, Linearizability",
+          "concepts": [
+            "sync vs async replication and failover data loss",
+            "quorum reads/writes (W+R>N)",
+            "linearizable vs sequential vs eventual",
+            "read-your-writes and monotonic reads in practice"
+          ],
+          "difficulty": "intermediate",
+          "estimated_minutes": 45,
+          "status": "available",
+          "builds_on": [
+            "storage-engines-btree-lsm-wal"
+          ]
+        },
+        {
+          "slug": "raft-consensus-leader-election-log-replication",
+          "title": "Raft: Leader Election, Log Replication, and Split-Brain Prevention",
+          "concepts": [
+            "election terms and randomized timeouts",
+            "log matching and commit index",
+            "membership changes",
+            "where Raft lives: etcd, Kafka KRaft, CockroachDB"
+          ],
+          "difficulty": "advanced",
+          "estimated_minutes": 45,
+          "status": "available",
+          "builds_on": [
+            "replication-consistency-models-quorums"
+          ],
+          "related": [
+            "circuit-breaker-bulkhead-resilience-half-open-state-machine"
+          ]
+        },
+        {
+          "slug": "distributed-transactions-2pc-sagas-outbox",
+          "title": "Distributed Transactions: 2PC, Sagas, and the Outbox Pattern",
+          "concepts": [
+            "2PC blocking and coordinator failure",
+            "saga compensation design",
+            "transactional outbox + CDC",
+            "idempotency keys and exactly-once illusions"
+          ],
+          "difficulty": "advanced",
+          "estimated_minutes": 45,
+          "status": "available",
+          "builds_on": [
+            "raft-consensus-leader-election-log-replication"
+          ]
+        },
+        {
+          "slug": "consistent-hashing-partitioning-rebalancing",
+          "title": "Partitioning: Consistent Hashing, Virtual Nodes, and Rebalancing",
+          "concepts": [
+            "hash ring and virtual nodes",
+            "hot partition detection and splitting",
+            "rebalancing without downtime",
+            "how Cassandra/DynamoDB/vector DBs shard"
+          ],
+          "difficulty": "advanced",
+          "estimated_minutes": 40,
+          "status": "available",
+          "builds_on": [
+            "replication-consistency-models-quorums"
+          ]
+        }
+      ],
+      "capstone": {
+        "slug": "capstone-distributed-job-scheduler",
+        "title": "Design Session: Distributed Job Scheduler (cron at scale)",
+        "prompt": "Design a distributed job scheduler: 10M scheduled jobs, at-least-once execution, jobs must fire within 5s of schedule, workers crash routinely. You design first \u2014 components, data model, partitioning, failure modes, capacity math \u2014 then get critiqued against a rubric.",
+        "requires": [
+          "raft-consensus-leader-election-log-replication",
+          "distributed-transactions-2pc-sagas-outbox",
+          "consistent-hashing-partitioning-rebalancing"
+        ],
+        "type": "design_session",
+        "status": "not_yet_suggested",
+        "requires_note": "soft gate: offer when most requires[] are done; never hard-block"
+      },
+      "ladder_note": "order is a suggested progression only \u2014 scoring, not gating"
+    },
+    {
+      "id": "backend-scale",
+      "title": "Backend at Scale",
+      "why": "The production-hardening layer: what keeps a service alive under load. One rung already done (circuit breakers).",
+      "ladder": [
+        {
+          "slug": "postgres-internals-mvcc-vacuum-planner",
+          "title": "PostgreSQL Internals: MVCC, VACUUM, and the Query Planner",
+          "concepts": [
+            "xmin/xmax tuple visibility",
+            "dead tuples and autovacuum tuning",
+            "planner estimates and when they lie",
+            "index-only scans and bloat"
+          ],
+          "difficulty": "intermediate",
+          "estimated_minutes": 45,
+          "status": "available",
+          "builds_on": []
+        },
+        {
+          "slug": "connection-pooling-backpressure-load-shedding",
+          "title": "Backpressure: Connection Pools, Queue Depth, and Load Shedding",
+          "concepts": [
+            "pool sizing math (Little's Law)",
+            "pgbouncer transaction pooling",
+            "bounded queues vs unbounded death",
+            "shed early vs degrade gracefully"
+          ],
+          "difficulty": "intermediate",
+          "estimated_minutes": 40,
+          "status": "available",
+          "builds_on": [
+            "postgres-internals-mvcc-vacuum-planner"
+          ]
+        },
+        {
+          "slug": "caching-strategies-invalidation-stampede",
+          "title": "Caching at Scale: Invalidation, Stampedes, and Consistency",
+          "concepts": [
+            "cache-aside vs write-through vs write-behind",
+            "thundering herd and request coalescing",
+            "TTL jitter and probabilistic early refresh",
+            "cache consistency with the DB (versioning, CDC)"
+          ],
+          "difficulty": "advanced",
+          "estimated_minutes": 45,
+          "status": "available",
+          "builds_on": [
+            "connection-pooling-backpressure-load-shedding"
+          ]
+        },
+        {
+          "slug": "kafka-partitions-consumer-groups-exactly-once",
+          "title": "Kafka: Partitioning, Consumer Groups, and Exactly-Once Semantics",
+          "concepts": [
+            "partition assignment and rebalancing storms",
+            "offset commit strategies",
+            "idempotent producer + transactions",
+            "consumer lag as a capacity signal"
+          ],
+          "difficulty": "advanced",
+          "estimated_minutes": 45,
+          "status": "available",
+          "builds_on": [
+            "caching-strategies-invalidation-stampede"
+          ],
+          "related": [
+            "replication-consistency-models-quorums"
+          ]
+        },
+        {
+          "slug": "circuit-breaker-bulkhead-resilience-half-open-state-machine",
+          "title": "Circuit Breakers, Bulkheads & Resilience: Half-Open State Machine",
+          "concepts": [
+            "closed/open/half-open state machine",
+            "bulkhead isolation and sizing",
+            "fallback design"
+          ],
+          "difficulty": "intermediate",
+          "estimated_minutes": 45,
+          "status": "completed",
+          "completed_date": "2026-06-29",
+          "quiz_score_pct": 0.4,
+          "note": "weakest score so far \u2014 bulkhead sizing flagged; capstone should lean on it",
+          "builds_on": []
+        },
+        {
+          "slug": "rate-limiting-distributed-token-bucket",
+          "title": "Distributed Rate Limiting: Token Bucket, Sliding Window, and Fairness",
+          "concepts": [
+            "token bucket vs sliding window counter",
+            "Redis-backed distributed limiter and race conditions",
+            "per-tenant fairness and burst policy",
+            "limiter placement: edge vs service"
+          ],
+          "difficulty": "intermediate",
+          "estimated_minutes": 40,
+          "status": "available",
+          "builds_on": [
+            "circuit-breaker-bulkhead-resilience-half-open-state-machine"
+          ]
+        },
+        {
+          "slug": "observability-slos-error-budgets-tracing",
+          "title": "Observability: SLOs, Error Budgets, and Distributed Tracing",
+          "concepts": [
+            "RED/USE metrics",
+            "trace context propagation",
+            "SLO math and burn-rate alerts",
+            "cardinality explosions"
+          ],
+          "difficulty": "intermediate",
+          "estimated_minutes": 45,
+          "status": "available",
+          "builds_on": [
+            "rate-limiting-distributed-token-bucket"
+          ]
+        }
+      ],
+      "capstone": {
+        "slug": "capstone-multi-tenant-api-gateway",
+        "title": "Design Session: Multi-Tenant API Gateway",
+        "prompt": "Design an API gateway for 200 tenants: per-tenant rate limits and quotas, p99 < 50ms overhead, graceful behavior when a backend degrades, full request tracing. Capacity math required: QPS -> connections -> pool sizes -> instances.",
+        "requires": [
+          "rate-limiting-distributed-token-bucket",
+          "circuit-breaker-bulkhead-resilience-half-open-state-machine",
+          "caching-strategies-invalidation-stampede"
+        ],
+        "type": "design_session",
+        "status": "not_yet_suggested",
+        "requires_note": "soft gate: offer when most requires[] are done; never hard-block"
+      },
+      "ladder_note": "order is a suggested progression only \u2014 scoring, not gating"
+    },
+    {
+      "id": "ai-infra-design",
+      "title": "AI Infrastructure Design",
+      "why": "Your differentiator: backend/system-design skill applied to LLM systems. Three rungs already done (eval, agent memory, agent architectures); one in progress.",
+      "ladder": [
+        {
+          "slug": "llm-serving-system-design-end-to-end",
+          "title": "LLM Serving System Design: Router, Scheduler, and Autoscaling End-to-End",
+          "concepts": [
+            "request router and model registry",
+            "continuous batching scheduler as a queueing system",
+            "autoscaling on tokens/sec not CPU",
+            "multi-model placement and bin-packing"
+          ],
+          "difficulty": "advanced",
+          "estimated_minutes": 50,
+          "status": "available",
+          "builds_on": [],
+          "related": [
+            "connection-pooling-backpressure-load-shedding",
+            "consistent-hashing-partitioning-rebalancing"
+          ]
+        },
+        {
+          "slug": "gpu-capacity-planning-batching-economics",
+          "title": "GPU Capacity Planning: Tokens/sec, Batching Economics, and Cost Math",
+          "concepts": [
+            "prefill vs decode FLOPs and the roofline",
+            "tokens/sec -> GPU count worked examples",
+            "batch size vs latency curves",
+            "$/1M tokens derivation and utilization targets"
+          ],
+          "difficulty": "advanced",
+          "estimated_minutes": 45,
+          "status": "available",
+          "note": "directly reinforces weak areas: acceptance math, bulkhead sizing (same estimation muscle)",
+          "builds_on": [
+            "llm-serving-system-design-end-to-end"
+          ],
+          "related": [
+            "tensor-parallelism-allreduce-column-row-sharding-comm-overlap"
+          ]
+        },
+        {
+          "slug": "semantic-caching-architecture-at-scale",
+          "title": "Semantic Caching Architecture: Embedding Keys, Thresholds, and Invalidation",
+          "concepts": [
+            "similarity threshold tuning and false-hit cost",
+            "cache key design for chat vs completion",
+            "eviction and staleness for model upgrades",
+            "where it sits: gateway vs app layer"
+          ],
+          "difficulty": "advanced",
+          "estimated_minutes": 45,
+          "status": "available",
+          "builds_on": [
+            "llm-serving-system-design-end-to-end"
+          ],
+          "related": [
+            "caching-strategies-invalidation-stampede"
+          ]
+        },
+        {
+          "slug": "llm-as-judge-eval-pipeline-bias-position-calibration",
+          "title": "LLM-as-Judge: Building Reliable Eval Pipelines",
+          "concepts": [
+            "pointwise vs pairwise scoring",
+            "position/verbosity/self-preference bias",
+            "rubric design, G-Eval, calibration"
+          ],
+          "difficulty": "advanced",
+          "estimated_minutes": 45,
+          "status": "completed",
+          "completed_date": "2026-07-02",
+          "quiz_score_pct": 0.8,
+          "builds_on": []
+        },
+        {
+          "slug": "eval-infra-at-scale-regression-gates-feedback-loops",
+          "title": "Eval Infrastructure at Scale: Regression Gates, Sampling, and Feedback Loops",
+          "concepts": [
+            "eval as CI: golden sets and regression gates",
+            "online sampling and shadow scoring",
+            "human-in-the-loop escalation design",
+            "eval data drift"
+          ],
+          "difficulty": "advanced",
+          "estimated_minutes": 45,
+          "status": "available",
+          "builds_on": [
+            "llm-as-judge-eval-pipeline-bias-position-calibration"
+          ],
+          "related": [
+            "kafka-partitions-consumer-groups-exactly-once"
+          ]
+        },
+        {
+          "slug": "agent-memory-episodic-semantic-procedural-retrieval",
+          "title": "Agent Memory Architectures: Episodic, Semantic, and Procedural Stores",
+          "concepts": [
+            "memory types and write policies",
+            "MemGPT two-tier paging",
+            "retrieval scoring"
+          ],
+          "difficulty": "advanced",
+          "estimated_minutes": 50,
+          "status": "completed",
+          "completed_date": "2026-06-29",
+          "quiz_score_pct": 0.8,
+          "builds_on": []
+        },
+        {
+          "slug": "react-vs-plan-execute-agents-reflection-error-recovery",
+          "title": "ReAct vs Plan-Execute Agents: Reflection Loops and Error Recovery",
+          "concepts": [
+            "think-act-observe loop",
+            "plan-execute two-phase",
+            "reflection checkpoints",
+            "decision framework"
+          ],
+          "difficulty": "advanced",
+          "estimated_minutes": 45,
+          "status": "completed",
+          "completed_date": "2026-06-29",
+          "quiz_score_pct": 0.8,
+          "builds_on": []
+        },
+        {
+          "slug": "multi-agent-orchestration-fan-out-shared-state-failure",
+          "title": "Multi-Agent Orchestration: Fan-Out, Shared State, and Failure Handling",
+          "concepts": [
+            "orchestrator-worker vs peer topologies",
+            "shared state and race conditions",
+            "partial failure and compensation"
+          ],
+          "difficulty": "advanced",
+          "estimated_minutes": 50,
+          "status": "available",
+          "builds_on": [
+            "react-vs-plan-execute-agents-reflection-error-recovery",
+            "agent-memory-episodic-semantic-procedural-retrieval"
+          ],
+          "related": [
+            "distributed-transactions-2pc-sagas-outbox"
+          ]
+        },
+        {
+          "slug": "streaming-inference-pipelines-sse-backpressure",
+          "title": "Streaming Inference Pipelines: SSE/gRPC Streams, Backpressure, and Cancellation",
+          "concepts": [
+            "token streaming transport tradeoffs",
+            "client disconnect and compute reclamation",
+            "stream backpressure end-to-end",
+            "timeout and retry semantics mid-stream"
+          ],
+          "difficulty": "advanced",
+          "estimated_minutes": 45,
+          "status": "available",
+          "builds_on": [
+            "llm-serving-system-design-end-to-end"
+          ],
+          "related": [
+            "connection-pooling-backpressure-load-shedding"
+          ]
+        }
+      ],
+      "capstone": {
+        "slug": "capstone-multi-tenant-llm-platform",
+        "title": "Design Session: Multi-Tenant LLM Inference Platform",
+        "prompt": "Design an inference platform: 50 tenants, mixed 7B/70B models, p99 < 800ms, bursty traffic, per-tenant quotas, semantic cache in front, eval feedback loop behind. You design: components, GPU capacity math, batching/routing strategy, failure modes, degradation policy. Critique rubric: requirements elicited, numbers add up, bottleneck identified, tradeoffs articulated.",
+        "requires": [
+          "llm-serving-system-design-end-to-end",
+          "gpu-capacity-planning-batching-economics",
+          "semantic-caching-architecture-at-scale"
+        ],
+        "type": "design_session",
+        "status": "not_yet_suggested",
+        "requires_note": "soft gate: offer when most requires[] are done; never hard-block"
+      },
+      "ladder_note": "order is a suggested progression only \u2014 scoring, not gating"
+    },
+    {
+      "id": "wildcard",
+      "title": "Wildcard Pool (LLM Architecture & Research)",
+      "why": "Unordered exploration slot \u2014 keeps the serendipity of the current system. No ladder, no prerequisites.",
+      "ladder": [
+        {
+          "slug": "speculative-decoding-eagle2-draft-trees-acceptance",
+          "title": "Speculative Decoding: EAGLE-2 Draft Trees and Acceptance Math",
+          "concepts": [
+            "hidden-state drafting",
+            "dynamic draft trees",
+            "acceptance/speedup math"
+          ],
+          "difficulty": "advanced",
+          "estimated_minutes": 45,
+          "status": "completed",
+          "completed_date": "2026-06-24",
+          "quiz_score_pct": null,
+          "note": "no verified score (quiz UI was broken) \u2014 re-quiz via /grill",
+          "builds_on": []
+        },
+        {
+          "slug": "moe-architecture-sparse-routing-production",
+          "title": "Mixture of Experts: Architecture, Sparse Routing, and Production Tradeoffs",
+          "concepts": [
+            "top-K gating",
+            "capacity factor",
+            "aux loss and expert collapse"
+          ],
+          "difficulty": "advanced",
+          "estimated_minutes": 50,
+          "status": "completed",
+          "completed_date": "2026-06-25",
+          "quiz_score_pct": null,
+          "note": "no verified score (quiz UI was broken) \u2014 re-quiz via /grill",
+          "builds_on": []
+        },
+        {
+          "slug": "rope-yarn-ntk-longcontext-extension-extrapolation",
+          "title": "RoPE, YaRN, and NTK Scaling: Long-Context Extension",
+          "concepts": [
+            "RoPE rotation math",
+            "NTK-aware scaling",
+            "YaRN attention temperature"
+          ],
+          "difficulty": "advanced",
+          "estimated_minutes": 45,
+          "status": "available",
+          "note": "lesson already generated and sitting in current_lesson.json",
+          "builds_on": []
+        },
+        {
+          "slug": "flashattention-tiling-online-softmax-io-awareness",
+          "title": "FlashAttention: Tiling, Online Softmax, and IO-Awareness",
+          "concepts": [
+            "SRAM vs HBM roofline",
+            "online softmax rescaling",
+            "block tiling",
+            "FA2/FA3 differences"
+          ],
+          "difficulty": "advanced",
+          "estimated_minutes": 45,
+          "status": "available",
+          "builds_on": []
+        },
+        {
+          "slug": "quantization-gptq-awq-fp8-production",
+          "title": "Quantization in Production: GPTQ, AWQ, FP8, and Accuracy Cliffs",
+          "concepts": [
+            "weight-only vs weight+activation",
+            "calibration data sensitivity",
+            "FP8 on Hopper",
+            "when quantization breaks: outlier channels"
+          ],
+          "difficulty": "advanced",
+          "estimated_minutes": 45,
+          "status": "available",
+          "builds_on": []
+        },
+        {
+          "slug": "tensor-parallelism-allreduce-column-row-sharding-comm-overlap",
+          "title": "Tensor Parallelism Internals: All-Reduce, Column/Row Sharding, Comm Overlap",
+          "concepts": [
+            "column vs row parallel matmuls",
+            "all-reduce placement",
+            "communication/compute overlap"
+          ],
+          "difficulty": "expert",
+          "estimated_minutes": 50,
+          "status": "deferred",
+          "suggest_after": "2026-07-14",
+          "note": "was too hard cold \u2014 gated behind GPU capacity planning so the math lands",
+          "builds_on": [
+            "gpu-capacity-planning-batching-economics"
+          ]
+        },
+        {
+          "slug": "mech-interp-induction-heads-superposition-saes",
+          "title": "Mechanistic Interpretability: Induction Heads, Superposition, and SAEs",
+          "concepts": [
+            "induction head circuits",
+            "superposition hypothesis",
+            "sparse autoencoders"
+          ],
+          "difficulty": "expert",
+          "estimated_minutes": 50,
+          "status": "deferred",
+          "suggest_after": "2026-07-14",
+          "builds_on": []
+        }
+      ],
+      "capstone": null,
+      "ladder_note": "order is a suggested progression only \u2014 scoring, not gating"
+    }
+  ],
+  "drills": {
+    "capacity_estimation": {
+      "enabled": true,
+      "questions_per_session": 3,
+      "description": "Back-of-envelope warm-up drills before each lesson: QPS -> connections -> memory -> shards; tokens/sec -> GPUs -> $/1M tokens. Directly trains the flagged weak areas (acceptance math, bulkhead sizing).",
+      "sources": [
+        "completed topic quiz banks",
+        "weak_areas",
+        "current track rung"
+      ]
+    }
+  }
+}

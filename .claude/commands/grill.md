@@ -29,7 +29,7 @@ Read both files:
 
 ```
 /Users/sumanthg/Documents/teach-me/.teach/memory.json
-/Users/sumanthg/Documents/teach-me/.teach/curriculum.json
+/Users/sumanthg/Documents/teach-me/.teach/curriculum-v2.json
 ```
 
 If `memory.json` is missing, create it fresh:
@@ -42,15 +42,16 @@ If `memory.json` is missing, create it fresh:
 ## Step 2 — Pick a Topic
 
 **If invoked as `/grill [slug]`:**
-- Look up the slug in `curriculum.json`
+- Look up the slug across all `tracks[].ladder[]` entries in `curriculum-v2.json`
 - If not found: "Slug '[slug]' not found. Available slugs: [list first 10]."
 - Proceed with that topic regardless of completion status
 
 **If no slug provided — pick in this priority order:**
 
-1. **Weak-area targeting:** If `memory.json.weak_areas` is non-empty AND at least one topic in `completed[]` exists — find the completed topic whose `concepts[]` most overlap with the weak area strings. Use that topic.
-2. **Random from completed:** If completed topics exist but no weak-area match is strong — pick one at random from `completed[]`.
-3. **First from curriculum:** If no topics are completed — use the first topic in `curriculum.json`.
+1. **Requiz queue (top priority):** If `memory.json.requiz_queue` is non-empty — grill the **first slug** in that array. Load its archived lesson from `.teach/archive/[slug].json` for question material (quiz + core_concepts). Note internally that this is a requiz session (needed later for Step 6 score write-back). Skip priorities 2-4 below.
+2. **Weak-area targeting:** If `memory.json.weak_areas` is non-empty AND at least one topic in `completed[]` exists — find the completed topic whose `concepts[]` most overlap with the weak area strings. Use that topic.
+3. **Random from completed:** If completed topics exist but no weak-area match is strong — pick one at random from `completed[]`.
+4. **First from curriculum:** If no topics are completed — use the first `available` topic in `curriculum-v2.json` (first track's ladder, top to bottom).
 
 **Display:**
 
@@ -63,6 +64,11 @@ GRILL SESSION: [Topic Title]
 If targeting a weak area, add one line:
 ```
 Targeting weak area: "[weak_area string]"
+```
+
+If this is a requiz-queue session, add one line instead:
+```
+Requiz — this topic is due for a scored recheck.
 ```
 
 ---
@@ -158,17 +164,40 @@ If all 10 were STRONG: "Clean sweep — no weak areas flagged."
 
 ## Step 6 — Update memory.json
 
-Read the current `memory.json`, then write it back with ONE change only:
+Read the current `memory.json`, then write it back with these changes:
 
-**Append to `weak_areas`** (global top-level list): add any concept strings from WEAK or PARTIAL questions that are not already present.
+**Append to `weak_areas`** (global top-level list): The global `weak_areas` in memory.json is an array of objects (see teach.md's Memory Schema Reference) — never append bare strings. For each concept string from questions graded WEAK or PARTIAL:
+- Check if a non-retired item with the same `phrase` already exists (comparing against `phrase` for object entries, or the raw string for any legacy plain-string entries). If yes, skip.
+- If not, append:
+  ```json
+  {
+    "phrase": "[concept string]",
+    "flagged_date": "[today YYYY-MM-DD]",
+    "reinforced_count": 0,
+    "retired": false,
+    "source_slug": "[the grilled topic's slug]"
+  }
+  ```
 
-**Do NOT:**
+**If this session's topic was picked from `requiz_queue` (priority 1 in Step 2):** also write back the score:
+1. Compute the session score as a percentage: `Strong = 1.0, Partial = 0.5, Weak = 0.0` per question, averaged over all 10 (i.e. `(Strong_count*1.0 + Partial_count*0.5) / 10`).
+2. Find the `completed[]` entry for the grilled slug in `memory.json`. Set its `quiz_score_pct` to this computed score.
+3. Recompute its `next_review_date` from the score:
+   - score >= 0.8 → today + 14 days
+   - score 0.6–0.79 → today + 7 days
+   - score < 0.6 → today + 2 days
+   **Uniqueness guard:** check this date against every other `next_review_date` in `completed[]`; if it collides, push forward one day at a time until unique.
+4. Remove this slug from `requiz_queue`.
+
+Validate `memory.json` with `python3 json.load` before finishing.
+
+**Do NOT (for non-requiz sessions or beyond the requiz write-back above):**
 - Mark any curriculum topic as completed
 - Update streak
 - Update last_session_date
-- Modify the `completed[]` array
+- Modify the `completed[]` array except for the requiz `quiz_score_pct` / `next_review_date` write-back described above
 
-Grill sessions are drills, not lessons. They never mark a topic done.
+Grill sessions are drills, not lessons. They never mark a topic done — a requiz score update is not a completion, it's a recheck of an already-completed topic.
 
 ---
 
@@ -176,9 +205,9 @@ Grill sessions are drills, not lessons. They never mark a topic done.
 
 | Invocation | Behavior |
 |---|---|
-| `/grill` | Auto-picks topic (weak-area target → random completed → first in curriculum) |
+| `/grill` | Auto-picks topic (requiz queue → weak-area target → random completed → first in curriculum) |
 | `/grill speculative-decoding` | Forces grill on speculative-decoding |
 | `/grill flashattention-internals` | Forces grill on FlashAttention internals |
 | `/grill moe-routing-serving` | Forces grill on MoE routing and serving |
 
-Any slug present in `curriculum.json` is valid.
+Any slug present in `curriculum-v2.json` (any track's ladder) is valid.

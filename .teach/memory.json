@@ -1,22 +1,121 @@
 {
-  "completed": [],
+  "completed": [
+    {
+      "slug": "llm-as-judge-eval-pipeline-bias-position-calibration",
+      "title": "LLM-as-Judge: Building Reliable Eval Pipelines",
+      "domain": "ml-ds",
+      "date": "2026-07-02",
+      "quiz_score_pct": 0.8,
+      "time_spent_minutes": 45,
+      "weak_areas": [],
+      "notes": "Covered pointwise vs pairwise scoring, position/verbosity/self-preference bias with mitigations, and rubric design with G-Eval + calibration. Good score (4/5). Scenarios helped make concepts concrete.",
+      "next_review_date": "2026-07-11"
+    },
+    {
+      "slug": "speculative-decoding-eagle2-draft-trees-acceptance",
+      "title": "Speculative Decoding: EAGLE-2 Draft Trees and Acceptance Math",
+      "domain": "llm-arch",
+      "date": "2026-06-24",
+      "quiz_score_pct": null,
+      "time_spent_minutes": 45,
+      "weak_areas": [
+        "acceptance math"
+      ],
+      "notes": "Covered EAGLE-2 hidden-state drafting, dynamic draft trees, and speedup formula. Math-heavy sections needed more worked examples. Quiz UI broken \u2014 couldn't answer questions and proceed.",
+      "next_review_date": "2026-07-09"
+    },
+    {
+      "slug": "moe-architecture-sparse-routing-production",
+      "title": "Mixture of Experts: Architecture, Sparse Routing, and Production Tradeoffs",
+      "domain": "llm-arch",
+      "date": "2026-06-25",
+      "quiz_score_pct": null,
+      "time_spent_minutes": 50,
+      "weak_areas": [
+        "dense text explanations"
+      ],
+      "notes": "Covered full MoE picture: sparse activation, top-K gating math, capacity factor, L_aux and expert collapse. Lesson text was too dense \u2014 user wants step-by-step breakdowns with simple definitions and examples, not paragraph dumps. Quiz still broken (scenario type stuck) \u2014 browser had old container.",
+      "next_review_date": "2026-07-10"
+    },
+    {
+      "slug": "circuit-breaker-bulkhead-resilience-half-open-state-machine",
+      "title": "Circuit Breakers, Bulkheads & Resilience: Half-Open State Machine",
+      "domain": "backend",
+      "date": "2026-06-29",
+      "quiz_score_pct": 0.4,
+      "time_spent_minutes": 45,
+      "weak_areas": [
+        "bulkhead sizing"
+      ],
+      "notes": "Covered circuit breaker state machine (closed/open/half-open), bulkhead isolation patterns, and resilience design. Low quiz score \u2014 bulkhead sizing and capacity math need reinforcement.",
+      "next_review_date": "2026-07-02"
+    },
+    {
+      "slug": "agent-memory-episodic-semantic-procedural-retrieval",
+      "title": "Agent Memory Architectures: Episodic, Semantic, and Procedural Stores with Retrieval-Augmented Recall",
+      "domain": "agentic",
+      "date": "2026-06-29",
+      "quiz_score_pct": 0.8,
+      "time_spent_minutes": 50,
+      "weak_areas": [
+        "reflection"
+      ],
+      "notes": "Covered episodic/semantic/procedural memory types, write policies with importance scoring, MemGPT two-tier paging, and the Generative Agents retrieval formula. Good score \u2014 reflection triggers and compaction-vs-reflection distinction needed more clarity.",
+      "next_review_date": "2026-07-13"
+    },
+    {
+      "slug": "react-vs-plan-execute-agents-reflection-error-recovery",
+      "title": "ReAct vs Plan-Execute Agents: Reflection Loops, Error Recovery, and When Each Wins",
+      "domain": "agentic",
+      "date": "2026-06-29",
+      "quiz_score_pct": 0.8,
+      "time_spent_minutes": 45,
+      "weak_areas": [],
+      "notes": "Covered ReAct think-act-observe loop, Plan-Execute two-phase structure, reflection checkpoints for error recovery, and the decision framework (task horizon, tool reliability, latency budget). Good score, no weak areas flagged.",
+      "next_review_date": "2026-07-14"
+    }
+  ],
   "in_progress": null,
-  "streak": 0,
-  "last_session_date": null,
-  "weak_areas": [],
+  "requiz_queue": [
+    "speculative-decoding-eagle2-draft-trees-acceptance",
+    "moe-architecture-sparse-routing-production"
+  ],
+  "streak": 2,
+  "last_session_date": "2026-07-02",
+  "weak_areas": [
+    {
+      "phrase": "acceptance math",
+      "flagged_date": "2026-06-24",
+      "reinforced_count": 0,
+      "retired": false,
+      "source_slug": "speculative-decoding-eagle2-draft-trees-acceptance"
+    },
+    {
+      "phrase": "bulkhead sizing",
+      "flagged_date": "2026-06-29",
+      "reinforced_count": 0,
+      "retired": false,
+      "source_slug": "circuit-breaker-bulkhead-resilience-half-open-state-machine"
+    },
+    {
+      "phrase": "reflection",
+      "flagged_date": "2026-06-29",
+      "reinforced_count": 0,
+      "retired": false,
+      "source_slug": "agent-memory-episodic-semantic-procedural-retrieval"
+    }
+  ],
   "presented_slugs": [
-    "postgres-mvcc-snapshots-vacuum",
-    "rate-limiting-token-bucket-sliding-window",
-    "raft-consensus-leader-election-log-replication",
-    "postgresql-mvcc-snapshots-vacuum",
-    "redis-rdb-aof-persistence-internals",
-    "raft-consensus-internals",
-    "rate-limiting-algorithms-token-bucket-sliding-window"
+    "mech-interp-induction-heads-superposition-saes"
   ],
   "preferences": {
     "depth": "expert",
     "session_minutes": 45,
-    "focus_areas": ["ai-ml", "backend", "system-design"]
+    "focus_areas": [
+      "ai-ml",
+      "backend",
+      "system-design"
+    ]
   },
   "learner": {
     "name": "Sumanth",
@@ -34,5 +133,21 @@
       "PyTorch",
       "Docker"
     ]
-  }
+  },
+  "deferred_topics": [
+    {
+      "slug": "mech-interp-induction-heads-superposition-saes",
+      "title": "Mechanistic Interpretability: Induction Heads, Superposition, and Sparse Autoencoders",
+      "domain": "ml-ds",
+      "suggest_after": "2026-07-14",
+      "reason": "too hard right now, revisit after 2 weeks"
+    },
+    {
+      "slug": "tensor-parallelism-allreduce-column-row-sharding-comm-overlap",
+      "title": "Tensor Parallelism Internals: All-Reduce, Column/Row Sharding, and Communication Overlap",
+      "domain": "inference",
+      "suggest_after": "2026-07-14",
+      "reason": "too hard right now"
+    }
+  ]
 }

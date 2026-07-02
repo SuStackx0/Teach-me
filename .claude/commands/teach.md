@@ -35,6 +35,20 @@ If `weak_areas` is non-empty, note them internally — weave reinforcement into 
 
 When reading `weak_areas` for any purpose (warm-up generation, reinforcement), filter to items where `retired == false`. Extract `phrase` from each. Backward compat: if an item is a plain string (not an object), treat it as `{"phrase": item, "flagged_date": null, "reinforced_count": 0, "retired": false, "source_slug": null}`.
 
+### Step 1b — Startup Consistency Check
+
+Run these checks every time, right after reading `memory.json`. Fix silently (no need to announce success — only note if a repair happened).
+
+**(a) Stale in_progress vs current_lesson:**
+If `in_progress != null`: read `.teach/current_lesson.json` (if it exists) and compare `meta.slug` to `in_progress`.
+- If `current_lesson.json` does not exist, OR its `meta.slug` does not match `in_progress`: set `in_progress = null` in `memory.json` and write it back. Note internally: "state repaired". Do not alarm the user — just proceed with a clean state.
+- If it matches, leave as-is (normal crash-recovery flow in Step 2a still applies).
+
+**(b) Completed-status drift vs curriculum-v2.json:**
+Read `/Users/sumanthg/Documents/teach-me/.teach/curriculum-v2.json`. For every slug in `memory.json`'s `completed[]`: find that slug in any track's `ladder[]` (or as a track's `capstone`). If found and its `status` is not `"completed"`, set `status: "completed"` there (add `completed_date`/`quiz_score_pct` from the memory entry if those fields are missing). Write `curriculum-v2.json` back if any change was made. Slugs not found in the graph (custom/wildcard topics) are not an error — skip them.
+
+Validate both files with `python3 -c "import json; json.load(open(...))"` after any write in this step.
+
 ---
 
 ## Step 2 — Select Today's Topic
@@ -55,10 +69,11 @@ If the above condition is true:
 
 ### Step 2b — Review Queue Check
 
-Read `completed[]` from `memory.json`. Find any entry where `next_review_date <= today's date` (today = 2026-06-21).
+Read `completed[]` from `memory.json`. Find any entry where `next_review_date <= today's date` (use the actual current date — check with `date +%F`).
 
 If any are due:
-- Select the one with the **earliest** `next_review_date`
+- Select the one with the **earliest** `next_review_date` (this is the one-review-per-day pick).
+- **Uniqueness guard:** this selection step never changes existing dates — the guard below only applies when a *new* `next_review_date` is computed in Step 8. Whenever Step 8 computes a new `next_review_date` for any `completed[]` entry, check every OTHER entry's `next_review_date` in `completed[]`. If the new date collides with one already in use, push the new date forward by one day, repeat the collision check, until it lands on a date no other entry has.
 - Output: `📚 Review due: [slug title]. Spaced repetition session starting...`
 - Check if `.teach/archive/[slug].json` exists. If yes, load it to get quiz questions + core_concepts.
 - Generate 10 review questions (use the archived lesson's quiz + generate new ones from its `core_concepts` titles). Questions test recall — no explanations shown upfront, just question → user answers → reveal answer.
@@ -102,105 +117,86 @@ If any are due:
 - Output: `📖 Custom topic: [topic]. Generating lesson...`
 - Skip the agent selection and topic picker below. Jump to Step 3.
 
-**If no topic provided — present 3 options and wait for user to pick:**
+**If no topic provided — score candidates from the curriculum graph:**
 
-Build context strings from memory.json:
+Read `/Users/sumanthg/Documents/teach-me/.teach/curriculum-v2.json`. Build the candidate pool and context:
+
 ```python
-completed_list = "\n".join([
-    f"- {e['title']} ({e.get('domain', '?')})"
-    for e in memory['completed']
-]) or "None yet"
-n_completed = len(memory['completed'])
+import json, datetime
+cur = json.load(open('/Users/sumanthg/Documents/teach-me/.teach/curriculum-v2.json'))
+today = datetime.date.today().isoformat()
+
+done_slugs = {t['slug'] for tr in cur['tracks'] for t in tr['ladder'] if t['status'] == 'completed'}
+
+candidates = []
+for tr in cur['tracks']:
+    for t in tr['ladder']:
+        ok = t['status'] == 'available' or (t['status'] == 'deferred' and t.get('suggest_after', '9999-12-31') <= today)
+        if ok:
+            candidates.append({**t, 'track': tr['id'], 'kind': 'lesson'})
+    cap = tr.get('capstone')
+    if cap and cap.get('status') != 'completed':
+        # soft gate: offer the capstone once all-but-one of its building blocks are done
+        if sum(r in done_slugs for r in cap['requires']) >= len(cap['requires']) - 1:
+            # Capstones only have {slug, title, prompt, requires, type, status, requires_note} —
+            # synthesize the fields the picker/brief templates always render so they never
+            # show blank values for a design_session candidate.
+            cap_defaults = {'estimated_minutes': 50, 'difficulty': 'design-session', 'concepts': []}
+            candidates.append({**cap_defaults, **cap, 'track': tr['id'], 'kind': 'design_session'})
+
+# coverage deficit per track (positive = under-covered vs mix_targets)
+by_track = {tr['id']: sum(1 for t in tr['ladder'] if t['status'] == 'completed') for tr in cur['tracks']}
+total = sum(by_track.values()) or 1
+deficits = {k: round(v - by_track.get(k, 0) / total, 2) for k, v in cur['mix_targets'].items()}
+
+recent = sorted(memory['completed'], key=lambda e: e['date'])[-3:]  # last 3 sessions by date, oldest first
 weak_areas_list = ", ".join([
     (w['phrase'] if isinstance(w, dict) else w)
     for w in memory.get('weak_areas', [])
     if not (isinstance(w, dict) and w.get('retired'))
 ]) or "None"
-
-# Build exclusion list: completed slugs + every slug ever presented to the user
-presented_slugs = memory.get('presented_slugs', [])
-excluded_slugs = [e['slug'] for e in memory['completed']] + presented_slugs
-excluded_slugs_str = ", ".join(excluded_slugs) if excluded_slugs else "None"
-
-# Rotation hint: use today's date + hour to steer the agent toward a fresh area
-# Compute a simple bucket: minute of the day mod 12 maps to one of 12 topic areas
-# Just pass the full datetime string — the agent uses it as a seed instruction
-import datetime
 rotation_hint = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 ```
 
 Spawn **one Agent** with **subagent_type `ai-engineer`** using this exact prompt (substitute the [PLACEHOLDERS]):
 
 ```
-You are an AI engineer curriculum designer. Generate exactly 3 diverse topic options for today's lesson.
+You are a curriculum picker. Choose exactly 3 options for today's session from CANDIDATES below. Pick ONLY from CANDIDATES — never invent a topic.
 
-TODAY: [TODAY_DATE]
-ROTATION HINT: [ROTATION_HINT] — use this timestamp as a randomization seed. Pick topics from DIFFERENT areas of the domain than you would by default. Actively avoid the most obvious/common choices. Explore the full breadth of the domain list below.
+TODAY: [TODAY]
+ROTATION HINT: [ROTATION_HINT] — randomization seed for the wildcard pick.
 
-COMPLETED ([N_COMPLETED] topics so far):
-[COMPLETED_LIST]
+RECENT SESSIONS (most recent last — one line each: date · title · slug · quiz score · weak areas · notes):
+[RECENT]
 
-ALREADY PRESENTED TO USER — NEVER suggest any of these slugs again (user has already seen or rejected them):
-[EXCLUDED_SLUGS]
+WEAK AREAS (non-retired): [WEAK_AREAS_LIST]
 
-WEAK AREAS (reinforce naturally if possible):
-[WEAK_AREAS_LIST]
+TRACK DEFICITS (positive = under-covered vs target mix): [DEFICITS]
 
-FULL AI ENGINEER KNOWLEDGE DOMAIN:
-- LLM Architecture: attention variants (GQA/MLA/MHA), quantization (GPTQ/AWQ/FP8/GGUF), speculative decoding (Medusa/EAGLE/SpecInfer), MoE routing & capacity factor, SSMs/Mamba selective scan, FlashAttention 2/3 tiling, positional encodings (RoPE/YaRN/ALiBi), pre-training objectives, tokenization internals (BPE/unigram/byte-level)
-- Inference & Serving: tensor/pipeline/sequence parallelism, KV cache eviction & quantization (KIVI/H2O), continuous batching internals, prefix caching, disaggregated prefill & chunked prefill (vLLM v2), Triton kernel writing, GPU profiling (roofline model, Nsight), torch.compile & CUDA graphs
-- Training & Alignment: RLHF, DPO, RLAIF, Constitutional AI, FSDP/ZeRO (stages 1/2/3), gradient checkpointing, scaling laws (Chinchilla/Kaplan), pre-training data curation (dedup, quality filtering), synthetic data & knowledge distillation, model merging (TIES/DARE/SLERP/task arithmetic), PEFT variants (QLoRA/DoRA/LoRA-FA)
-- Agentic Systems: agent architectures (ReAct/Reflexion/Plan-Execute/LATS/Voyager), tool use & function calling patterns, agent memory (episodic/semantic/procedural/external), multi-agent orchestration & communication protocols, agent evaluation & benchmarking, LLM-as-judge, planning under uncertainty, agent reliability & failure modes
-- ML/DS & Evaluation: evaluation metrics (BLEU/ROUGE/BERTScore/human eval/G-Eval), calibration & uncertainty (conformal prediction, semantic entropy, temperature scaling), mechanistic interpretability (induction heads, superposition, SAEs, activation patching), contrastive learning & embedding training, retrieval eval (nDCG/MRR/Recall@K), statistical significance testing
-- MLOps: experiment tracking (MLflow/W&B), model versioning & registry, A/B testing for LLMs, shadow deployments, data/model drift detection, feedback loop design, CI/CD for ML pipelines, feature stores for ML
-- Backend Systems: PostgreSQL query planner & MVCC & VACUUM, Redis internals (RDB/AOF/clustering/Streams/Lua), Kafka (partitioning/consumer groups/exactly-once), rate limiting algorithms (token bucket/sliding window), circuit breakers & resilience patterns, gRPC & protobuf streaming, REST API design & versioning, database transactions & isolation levels (MVCC/SSI/write skew), caching strategies & invalidation at scale
-- System Design / HLD: distributed consensus (Raft/Paxos), consistent hashing & virtual nodes, CAP/PACELC & consistency models, event sourcing/CQRS, saga pattern & distributed transactions, microservices/DDD bounded contexts, Kubernetes scheduling & HPA/VPA, service mesh (Istio/Envoy), observability (OpenTelemetry/traces/RED metrics), SLOs & error budgets, HLD case studies (Twitter feed, Uber geo, YouTube CDN)
-- Cross-domain (HIGH VALUE): vector DB internals (HNSW/IVF-PQ indexing), LLM serving system design end-to-end, streaming inference pipelines, AI feature stores, LLM eval infrastructure at scale, semantic caching architectures, speculative decoding meets continuous batching
+CANDIDATES (fields: slug, title, track, kind, concepts, builds_on, related, difficulty, estimated_minutes, note):
+[CANDIDATES_JSON]
 
-RULES FOR ALL 3 OPTIONS:
-1. NEVER repeat a completed topic.
-2. FRESH START RULE: When n_completed == 0, ALL 3 options MUST come from Backend Systems or System Design/HLD. Do NOT include any LLM Architecture, Inference, Training, Agentic, or MLOps topic.
-3. PREREQUISITE ORDERING: Every topic must have its prerequisites covered OR be a foundational topic with no prerequisites.
-4. The 3 options must be from 3 DIFFERENT domains (no two options from the same domain).
-5. Difficulty: <10 done → intermediate, 10–25 → advanced, >25 → expert
-6. Be specific — not "Attention Mechanisms" but "Transformer Self-Attention: Scaled Dot-Product and Why It Works"
-7. Each option must fit in 30–60 minutes.
+SELECTION RULES:
+1. OPTION 1 — MOMENTUM. The candidate most connected to RECENT SESSIONS via builds_on/related edges (either direction) or direct conceptual continuity. In why_next, name the recent session it continues and how.
+2. OPTION 2 — GAP. From the track with the largest positive deficit, and a different track than option 1. Prefer candidates whose concepts overlap WEAK AREAS.
+3. OPTION 3 — WILDCARD. Seeded by ROTATION HINT — any remaining candidate, from a third track if possible.
+4. CAPSTONE PRIORITY: if any candidate has kind "design_session", it MUST be option 1 — its building blocks are done, time to compose them.
+5. Readiness is soft: few completed builds_on lowers preference but never disqualifies. If you pick a low-readiness candidate, say so in why_next ("we'll backfill X inline").
 
-Return ONLY a valid JSON array with exactly 3 objects, no markdown fences:
-[
-  {
-    "title": "Specific descriptive title",
-    "slug": "kebab-case-unique-slug",
-    "domain": "llm-arch|inference|training|agentic|ml-ds|mlops|backend|system-design|cross-domain",
-    "concepts": ["specific concept 1", "concept 2", "concept 3"],
-    "why_next": "1-2 direct sentences: why this fills a gap for him right now",
-    "difficulty": "intermediate|advanced|expert",
-    "estimated_minutes": 45
-  },
-  { ... },
-  { ... }
-]
+Return ONLY a valid JSON array of exactly 3 objects — each copied verbatim from CANDIDATES with two fields added:
+"why_next": "1-2 direct sentences", "basis": "momentum|gap|wildcard|capstone"
+No markdown fences.
 ```
 
-Substitute: [TODAY_DATE] = today's date, [N_COMPLETED] = n_completed, [COMPLETED_LIST] = completed_list, [WEAK_AREAS_LIST] = weak_areas_list, [EXCLUDED_SLUGS] = excluded_slugs_str, [ROTATION_HINT] = rotation_hint
+Substitute: [TODAY] = today, [ROTATION_HINT] = rotation_hint, [RECENT] = formatted recent list, [WEAK_AREAS_LIST] = weak_areas_list, [DEFICITS] = deficits dict, [CANDIDATES_JSON] = the candidates list as JSON.
 
-Parse the agent's JSON array response. If parse fails or array has fewer than 3 items, pick 3 items from this expanded fallback pool (choose based on excluded_slugs — skip any that appear there):
-```json
-[
-  {"title": "Raft Consensus: Leader Election and Log Replication", "slug": "raft-consensus-internals", "domain": "system-design", "concepts": ["leader election", "log replication", "split-brain prevention"], "why_next": "Core distributed systems building block behind etcd, Kafka, and Kubernetes.", "difficulty": "intermediate", "estimated_minutes": 45},
-  {"title": "Rate Limiting Algorithms: Token Bucket and Sliding Window", "slug": "rate-limiting-algorithms", "domain": "backend", "concepts": ["token bucket", "sliding window counter", "distributed rate limiting"], "why_next": "Every LLM inference API needs to protect GPU capacity with fair-use limits.", "difficulty": "intermediate", "estimated_minutes": 45},
-  {"title": "gRPC and Protobuf: Streaming and Service Contracts", "slug": "grpc-protobuf-streaming", "domain": "backend", "concepts": ["protobuf encoding", "unary vs streaming RPCs", "deadlines and cancellation"], "why_next": "gRPC is the dominant protocol for LLM serving backends and multi-service ML systems.", "difficulty": "intermediate", "estimated_minutes": 45},
-  {"title": "Consistent Hashing and Virtual Nodes", "slug": "consistent-hashing-virtual-nodes", "domain": "system-design", "concepts": ["hash ring", "virtual nodes for balance", "hotspot handling"], "why_next": "Used in every distributed cache and vector DB sharding scheme.", "difficulty": "intermediate", "estimated_minutes": 40},
-  {"title": "Kafka Fundamentals: Partitions, Consumer Groups, and Exactly-Once", "slug": "kafka-partitions-consumer-groups", "domain": "backend", "concepts": ["partition assignment", "consumer group rebalancing", "exactly-once semantics"], "why_next": "Kafka is the standard event bus for ML pipelines and inference logging.", "difficulty": "intermediate", "estimated_minutes": 45},
-  {"title": "Circuit Breakers and Resilience Patterns", "slug": "circuit-breakers-resilience", "domain": "backend", "concepts": ["closed/open/half-open states", "failure thresholds", "fallbacks and bulkheads"], "why_next": "Every multi-service AI backend needs circuit breakers to avoid cascade failures.", "difficulty": "intermediate", "estimated_minutes": 40},
-  {"title": "Observability: Distributed Tracing and RED Metrics", "slug": "observability-tracing-red-metrics", "domain": "system-design", "concepts": ["trace context propagation", "RED metrics (rate/errors/duration)", "OpenTelemetry instrumentation"], "why_next": "You can't debug latency in a multi-service LLM backend without traces.", "difficulty": "intermediate", "estimated_minutes": 45},
-  {"title": "CAP Theorem and Consistency Models in Practice", "slug": "cap-theorem-consistency-models", "domain": "system-design", "concepts": ["CAP vs PACELC", "eventual vs strong consistency", "real-world tradeoffs in Redis/Cassandra/etcd"], "why_next": "Every distributed state decision in agentic systems maps back to CAP tradeoffs.", "difficulty": "intermediate", "estimated_minutes": 45}
-]
-```
+Parse the agent's JSON array. Validate: every returned slug must exist in the candidate pool — discard invented items.
 
-**Before presenting options: write the 3 slugs to memory.json.**
-
-Read memory.json, append all 3 option slugs to `presented_slugs` (dedup — don't add if already present), write back. This ensures next `/teach` call excludes these options automatically.
+**Fallback (agent fails, bad JSON, or <3 valid items) — pick deterministically from candidates, no agent needed:**
+1. momentum: a candidate sharing a builds_on/related edge (either direction) with the most recent completed slug; if none, any candidate in that same track
+2. gap: first candidate in the highest-deficit track not already picked
+3. wildcard: any remaining candidate from a third track
+Write a one-line why_next from each candidate's `note`/`concepts`; set `basis` accordingly.
 
 **Present the 3 options to the user and STOP:**
 
@@ -212,15 +208,15 @@ Pick today's topic:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 1️⃣  [option[0].title]
-   ~[option[0].estimated_minutes] min · [option[0].difficulty] · [option[0].domain]
+   ~[option[0].estimated_minutes] min · [option[0].difficulty] · [option[0].track] · [option[0].basis]
    [option[0].why_next]
 
 2️⃣  [option[1].title]
-   ~[option[1].estimated_minutes] min · [option[1].difficulty] · [option[1].domain]
+   ~[option[1].estimated_minutes] min · [option[1].difficulty] · [option[1].track] · [option[1].basis]
    [option[1].why_next]
 
 3️⃣  [option[2].title]
-   ~[option[2].estimated_minutes] min · [option[2].difficulty] · [option[2].domain]
+   ~[option[2].estimated_minutes] min · [option[2].difficulty] · [option[2].track] · [option[2].basis]
    [option[2].why_next]
 
 Reply 1, 2, or 3 — or type any topic to use something else entirely.
@@ -231,9 +227,13 @@ Reply 1, 2, or 3 — or type any topic to use something else entirely.
 
 When the user replies:
 - "1", "2", or "3": use that option's full JSON object as the chosen topic
-- Any other text: treat as a custom topic override (title = that text, slug = kebab-case of it, domain = "custom", concepts = [], estimated_minutes = 45, difficulty = "advanced")
+- Any other text: treat as a custom topic override (title = that text, slug = kebab-case of it, track = "wildcard", domain = "custom", concepts = [], estimated_minutes = 45, difficulty = "advanced", kind = "lesson")
 
 Output: `🤖 Going with: [chosen title]`
+
+If the chosen option has `kind == "design_session"`: skip the fast-path check and Steps 3–4 entirely — go directly to **Step 4-DS**.
+
+If an option has kind `design_session`, prefix its title in the picker block with 🏗️ and note "(design session — you design, I critique)". Its `estimated_minutes`/`difficulty`/`concepts` in the picker line come from the synthetic defaults set in Step 2c's candidate-building code (design sessions have no `concepts` field in curriculum-v2.json, so render that segment as "design session" instead of a concept list).
 
 **Fast-path check (run after user picks, before Step 3):**
 
@@ -373,10 +373,32 @@ Parse each concept agent's JSON output. Each parsed concept object (including it
 }
 ```
 
-**warm_up**: Only add if `memory.json` has non-empty `weak_areas` (filter to `retired == false` items). If so, generate 5 questions inline (no agent needed):
+**warm_up**: ALWAYS build exactly 5 questions, drawn from `.teach/question_bank.json` (not generated fresh). This runs every session, regardless of whether weak areas exist.
+
+Read `/Users/sumanthg/Documents/teach-me/.teach/question_bank.json`. Its `questions[]` array has fields: `id, source_slug, source_title, domain, type, question, options, answer, explanation, times_asked, times_correct, last_asked`.
+
+**Selection — pick 5 questions in this priority order, filling from each bucket before moving to the next, skipping already-picked questions:**
+1. **(a) Due for review:** questions whose `source_slug` matches a `completed[]` entry with `next_review_date` within 3 days of today (i.e. `today <= next_review_date <= today+3`).
+2. **(b) Weak scorers:** questions whose `source_slug` matches a `completed[]` entry with `quiz_score_pct < 0.6` or `quiz_score_pct == null`.
+3. **(c) Weak-area text overlap:** questions whose `question` text overlaps (shares a key phrase/word) with any non-retired `weak_areas[].phrase`.
+4. **(d) Least-recently-asked:** fill any remaining slots with questions ordered by `last_asked` ascending, `null` first (never-asked questions come before asked ones).
+
+**Diversity constraint:** no two selected questions may share the same `source_slug`, unless the bank has too few distinct `source_slug` values to fill 5 slots (then allow repeats, still preferring the priority order above).
+
+**After selecting the 5**, update each chosen question in `question_bank.json`: `times_asked += 1`, `last_asked = today (YYYY-MM-DD)`. Write `question_bank.json` back and validate with `python3 json.load`.
+
+**Map each selected bank question into the warm_up JSON shape** the React app reads (field names must match exactly — do not invent new ones):
 ```json
-{ "id": N, "question": "...", "expected_points": [...], "difficulty": "warmup", "target_weak_area": "...", "follow_up": "..." }
+{
+  "id": N,
+  "question": "[bank question.question, prefixed with its code block inline if the bank item had one]",
+  "expected_points": ["[bank question.answer]", "[bank question.explanation]"],
+  "difficulty": "warmup",
+  "target_weak_area": "[the matching weak_areas[].phrase if selected via rule (c), else null]",
+  "follow_up": "[one short natural follow-up question you write, deepening the same concept]"
+}
 ```
+`id` is a fresh sequential integer (1-5) local to this lesson's `warm_up` array — it is NOT the bank's `id` string (keep the bank id only inside your own bookkeeping for Step 8c write-back; store it as `source_question_id` alongside the mapped object so debrief can update the right bank entry).
 
 Write Phase 1 JSON to `/Users/sumanthg/Documents/teach-me/.teach/current_lesson.json`.
 Update `memory.json`: set `in_progress` to the topic slug.
@@ -429,6 +451,8 @@ SUMMARY: one clear sentence + 4-5 bullets of the most important takeaways. No fl
 
 FURTHER_READING: 2-3 resources. One sentence each on why this specific resource matters for this specific person.
 
+DESIGN_KATA: one applied, 5-minute design decision using today's topic, phrased as a concrete production situation — something with real constraints (traffic numbers, latency budget, failure scenario), asking the reader to make and justify one decision. Not a full system design — a single focused call.
+
 LANGUAGE: Short sentences. Plain words. No "it is worth noting", "fundamentally", "in essence".
 
 Return ONLY a single JSON object (no markdown):
@@ -436,17 +460,54 @@ Return ONLY a single JSON object (no markdown):
   "quiz": [{"id": N, "type": "multiple_choice|scenario|true_false", "question": "...", "code": null, "options": ["A. ...", "B. ...", "C. ...", "D. ..."], "answer": "A", "accepted_answers": ["A"], "explanation": "..."}],
   "key_insights": [{"kind": "insight|gotcha|tip", "title": "...", "text": "..."}],
   "summary": {"one_liner": "...", "takeaways": ["..."]},
-  "further_reading": [{"title": "...", "url": null, "kind": "paper|blog|docs|book", "why": "..."}]
+  "further_reading": [{"title": "...", "url": null, "kind": "paper|blog|docs|book", "why": "..."}],
+  "design_kata": {"prompt": "one applied 5-minute design decision using today's topic, phrased as a concrete production situation", "strong_answer": "what a strong answer covers, 3-4 bullets"}
 }
 ```
 
 Wait for the agent. Log: `Quiz+Insights done`. Then:
 1. Parse the result
 2. Read `/Users/sumanthg/Documents/teach-me/.teach/current_lesson.json`
-3. Merge in: `key_insights`, `quiz`, `summary`, `further_reading`
+3. Merge in: `key_insights`, `quiz`, `summary`, `further_reading`, `design_kata`
 4. Set `_generation_status: "complete"`
 5. Write merged JSON back to `current_lesson.json`
 6. Output: `Generation complete.`
+
+---
+
+## Step 4-DS — Design Session (Capstones)
+
+Capstones are produce-then-critique sessions. They run **entirely in the terminal** — no lesson generation, no concept agents, no server, no React app.
+
+Update `memory.json`: set `in_progress` to the capstone slug. Then:
+
+1. **Present the brief.** Output the capstone's `prompt` requirements, then:
+   ```
+   Your move — write your design:
+   • components & data flow
+   • data model / partitioning
+   • capacity math (show the numbers)
+   • failure modes & degradation policy
+   • the tradeoffs you chose and why
+   Bullet points are fine. Say "hint" if stuck.
+   ```
+   **STOP and wait for their design.**
+
+2. **Critique against the rubric.** Peer-review tone — direct, evidence-based, no cheerleading. Score each dimension 1–5 with a one-line justification:
+   - **Requirements** — did they pin down scale, latency, consistency needs before designing?
+   - **Capacity math** — do the numbers exist, and do they add up?
+   - **Bottleneck** — did they identify the real one?
+   - **Failure modes** — crash, partition, overload all handled?
+   - **Tradeoffs** — articulated and justified, not just asserted?
+   Cross-reference their completed topics from `curriculum-v2.json`: "you covered quorum writes — where are they in this design?"
+
+3. **One revision round.** Invite a revision targeting the weakest 1–2 dimensions. Re-score only those. If the user says "done" instead, proceed to logging.
+
+4. **Log on "done".** Compute `overall = mean(final dimension scores) / 5`. Then:
+   - `memory.json`: append to `completed[]` — `{slug, title, domain: "design-session", date: today, quiz_score_pct: overall, time_spent_minutes: estimate, weak_areas: [each dimension scoring <= 2, as a short phrase like "capacity math"], notes: "1-2 sentence summary of design strengths/gaps", next_review_date: per the normal score rules}`. Set `in_progress: null`. Update `streak` and `last_session_date` per the normal rules.
+   - `curriculum-v2.json`: set the capstone's `status: "completed"`, add `completed_date` and `quiz_score_pct`.
+   - **Skip the normal Step 8 debrief questions** — the rubric already captured scores and weak areas.
+   - Output the normal completion block from Step 8c, using the rubric summary in place of the debrief answer.
 
 ---
 
@@ -518,7 +579,7 @@ When you're done, come back here and say "done" — I'll log your session.
 Read `memory.json`. If `in_progress == null` AND the topic slug already appears in `completed[].slug`:
 
 ```
-Session already logged via Streamlit.
+Session already logged.
 Progress: [X] topics · [N]-day streak
 See you next time!
 ```
@@ -534,6 +595,7 @@ If `in_progress` starts with `"review-"`, run this flow instead of the normal de
    - score >= 80% → next_review_date = today + 28 days
    - score 60–79% → next_review_date = today + 14 days
    - score < 60% → next_review_date = today + 7 days
+   Apply the same **uniqueness guard** as Step 8: if this date collides with another entry's `next_review_date` in `completed[]`, push forward one day at a time until unique.
 3. In `memory.json`, find the `completed[]` entry for the original slug (strip the `"review-"` prefix). Update its `next_review_date`.
 4. Set `in_progress` to `null`.
 5. Write `memory.json`.
@@ -553,6 +615,30 @@ e.g. "batch speculation", "acceptance rate math", "warp scheduling")
 
 Wait for their answer. Use it to populate `weak_areas`.
 
+**Design kata.** If `current_lesson.json` has a `design_kata` field and the user hasn't seen it yet this session, show it now:
+```
+One more thing — a quick design call:
+
+[design_kata.prompt]
+```
+Wait for their answer. Judge it pass/fail against `design_kata.strong_answer` — be strict but fair. Give a one-line verdict:
+```
+Verdict: PASS — [one clause on why] / FAIL — [one clause on what was missing]
+```
+Remember this as `kata_passed: true/false` for the `completed[]` entry written later in this step. If there is no `design_kata` field on the lesson (e.g. an older pre-generated lesson), skip this and omit `kata_passed` from the completed entry.
+
+**Warm-up recap.** Ask:
+```
+Warm-up: which question numbers did you miss? (e.g. 2,4 — or none)
+```
+Wait for their answer. Parse the numbers (or "none" = all 5 correct). For each of the 5 warm-up questions:
+- If its number was NOT in the missed list (i.e. answered correctly):
+  - In `question_bank.json`, find the bank question by the `source_question_id` you stored when building `warm_up` (Step 4c) and increment its `times_correct += 1`.
+  - If that warm-up item's `target_weak_area` is non-null: find the matching entry in `memory.json`'s `weak_areas[]` by `phrase` and increment its `reinforced_count += 1`. If `reinforced_count` reaches `>= 2`, set `retired: true` on that entry.
+- If its number WAS in the missed list: no bank or weak_area update for that question (a miss doesn't reinforce anything).
+
+Write `question_bank.json` and `memory.json` back after this step; validate both with `python3 json.load`.
+
 Then ask:
 
 ```
@@ -567,6 +653,8 @@ From quiz score:
 - quiz_score_pct < 0.6 → next_review_date = today + 2 days
 - None/skipped → next_review_date = today + 7 days
 
+**Uniqueness guard:** before writing this date, check it against every `next_review_date` already present in `completed[]`. If it collides with an existing one, push it forward one day and re-check, repeating until it is unique across all `completed[]` entries (including the one you're about to add).
+
 ### Update memory.json
 
 Read the current `.teach/memory.json`, then write back with these changes:
@@ -576,13 +664,14 @@ Read the current `.teach/memory.json`, then write back with these changes:
    {
      "slug": "[topic slug]",
      "title": "[topic title]",
-     "domain": "[from topic selection agent response]",
+     "domain": "[the chosen option's track id, or \"custom\" for free-typed topics]",
      "date": "[today YYYY-MM-DD]",
      "quiz_score_pct": [score as decimal, e.g. 0.75, or null if skipped],
      "time_spent_minutes": [estimate from session start to now],
      "weak_areas": ["[their debrief answer]"],
      "notes": "[1-2 sentence summary of the session — what they got, what they missed]",
-     "next_review_date": "[computed date YYYY-MM-DD]"
+     "next_review_date": "[computed date YYYY-MM-DD]",
+     "kata_passed": [true|false — omit this field entirely if the lesson had no design_kata]
    }
    ```
 
@@ -608,6 +697,13 @@ Read the current `.teach/memory.json`, then write back with these changes:
      }
      ```
 
+### Update curriculum-v2.json
+
+Read `/Users/sumanthg/Documents/teach-me/.teach/curriculum-v2.json`:
+- If the completed slug exists in any track's `ladder[]` (or is a track's capstone): set its `status: "completed"`, add `completed_date` (today) and `quiz_score_pct`.
+- If the slug is NOT in the graph (custom free-typed topic): append it to the `wildcard` track's ladder as `{slug, title, concepts: [], builds_on: [], difficulty, estimated_minutes, status: "completed", completed_date, quiz_score_pct}` — so future momentum scoring can see it.
+- Write the file back.
+
 ### Archive the Lesson
 
 After writing `memory.json`:
@@ -632,29 +728,30 @@ Weak areas flagged: "[their answer]"
 
 Next review of this topic: [next_review_date]
 
-Tomorrow's suggestion: [next-topic title]
-→ [why_next from agent selection for that topic]
-
 See you tomorrow! 🧠
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
 
 ---
 
-## Step 8.5 — Pre-generate Next Lesson (runs after Step 8 completion output)
+## Step 8.5 — Pre-generate Next Lesson (runs immediately after Step 8's completion output)
 
-After the completion output, pre-generate tomorrow's lesson for instant startup.
+Immediately after printing Step 8's completion output, pre-generate tomorrow's lesson for instant startup. This step computes tomorrow's topic itself — Step 8's output above intentionally does NOT include a "tomorrow's suggestion" line, because that data does not exist until this step runs.
 
 1. Build updated context: include the just-completed topic in completed_list, increment n_completed
 2. Spawn an **ai-engineer** Agent with the same topic-selection prompt from Step 2c (with updated context)
-3. Parse the returned JSON to get the next topic {title, slug, domain, concepts, why_next, difficulty, estimated_minutes}
+3. Parse the returned JSON array and take the momentum pick (option 1) as the next topic — unless it's a `design_session`, in which case take option 2 (design sessions can't be pre-generated)
 4. If agent fails or parse fails: output `⚠️  Pre-generation skipped — next topic will be selected fresh on next /teach` and stop
 5. If successful: Generate the full lesson using SAME parallel agent structure as Steps 4a–4d (no coding challenge):
    - Write Phase 1 to a temp variable (do NOT overwrite current_lesson.json)
    - After all agents complete, assemble the FULL lesson JSON (both phases merged, no coding_challenge field)
    - Set `_generation_status: "complete"`
    - Write to `/Users/sumanthg/Documents/teach-me/.teach/next_lesson.json`
-6. Output: `⚡ Next lesson pre-generated: [Next Topic Title] — instant on next /teach`
+6. Output:
+   ```
+   ⚡ Next lesson pre-generated: [Next Topic Title] — instant on next /teach
+      Why: [why_next from the momentum pick]
+   ```
 
 ---
 
@@ -699,7 +796,8 @@ When using the picker, you can also type any topic name instead of 1/2/3 to over
       "time_spent_minutes": 45,
       "weak_areas": ["rope extrapolation"],
       "notes": "...",
-      "next_review_date": "2026-07-04"
+      "next_review_date": "2026-07-04",
+      "kata_passed": true
     }
   ],
   "in_progress": null,
@@ -714,8 +812,31 @@ When using the picker, you can also type any topic name instead of 1/2/3 to over
       "source_slug": "transformer-micro-architecture"
     }
   ],
-  "presented_slugs": ["raft-consensus-internals", "rate-limiting-algorithms"],
   "preferences": {"depth": "expert", "session_minutes": 60, "focus_areas": ["ai-ml", "backend", "system-design"]},
-  "learner": {"name": "Sumanth", "role": "AI Backend Engineer", "company": "uCube.ai"}
+  "learner": {"name": "Sumanth", "role": "AI Backend Engineer", "company": "uCube.ai"},
+  "requiz_queue": ["speculative-decoding-eagle2-draft-trees-acceptance"]
+}
+```
+
+## Question Bank Schema Reference (`.teach/question_bank.json`)
+
+```json
+{
+  "questions": [
+    {
+      "id": "agent-memory-episodic-semantic-procedural-retrieval-q1",
+      "source_slug": "agent-memory-episodic-semantic-procedural-retrieval",
+      "source_title": "...",
+      "domain": "agentic",
+      "type": "multiple_choice|scenario|true_false|open",
+      "question": "...",
+      "options": ["A. ...", "B. ...", "C. ...", "D. ..."],
+      "answer": "...",
+      "explanation": "...",
+      "times_asked": 0,
+      "times_correct": 0,
+      "last_asked": null
+    }
+  ]
 }
 ```
