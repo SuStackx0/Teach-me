@@ -453,7 +453,22 @@ Output:
 
 Output: `Spawning assessment agent (quiz + insights)...`
 
-**Call the Agent tool once** for quiz+insights. Pass the topic title and a summary of each concept's title + key points as context.
+**Call the Agent tool once** for quiz+insights. Pass the topic title, a summary of each concept's title + key points, and the available topics list as context.
+
+Before spawning, build the available topics list:
+```python
+import json
+cur = json.load(open('/Users/sumanthg/Documents/teach-me/.teach/curriculum-v2.json'))
+mem = json.load(open('/Users/sumanthg/Documents/teach-me/.teach/memory.json'))
+done = {c['slug'] for c in mem.get('completed', [])}
+done.add(chosen_slug)  # exclude current lesson too
+available_topics = [
+    {"slug": t['slug'], "title": t['title']}
+    for tr in cur['tracks'] for t in tr['ladder']
+    if t['slug'] not in done
+]
+```
+Substitute `[AVAILABLE_TOPICS_JSON]` in the prompt with `json.dumps(available_topics)`.
 
 **Quiz+Insights agent prompt:**
 
@@ -473,6 +488,10 @@ DESIGN_KATA: one applied, 5-minute design decision using today's topic, phrased 
 
 SCENARIO: a concrete end-to-end production scenario showing this topic in action. A real system, a real problem, how the concept solves it, what breaks without it.
 
+SUGGESTIONS: exactly 3 topic suggestions for what to study next, chosen from AVAILABLE_TOPICS below. Pick topics where studying them NOW, right after this lesson, would create a strong knowledge connection — not just "what's next in the curriculum" but what would genuinely deepen or extend today's understanding. Each suggestion needs a one-sentence reason that is specific to what was just covered (e.g. "You saw how tool calls work in MCP; this shows how to make them reliable under failure" — not generic).
+
+AVAILABLE_TOPICS: [AVAILABLE_TOPICS_JSON]
+
 LANGUAGE: Short sentences. Plain words. No "it is worth noting", "fundamentally", "in essence".
 
 Return ONLY a single JSON object (no markdown):
@@ -482,7 +501,8 @@ Return ONLY a single JSON object (no markdown):
   "summary": {"one_liner": "...", "takeaways": ["..."]},
   "further_reading": [{"title": "...", "url": null, "kind": "paper|blog|docs|book", "why": "..."}],
   "design_kata": {"prompt": "one applied 5-minute design decision using today's topic, phrased as a concrete production situation", "strong_answer": "what a strong answer covers, 3-4 bullets"},
-  "scenario": {"title": "str", "problem": "2-3 sentences describing the real production problem", "system_description": "describe the real system and its components", "how_concept_applies": "2-3 sentences on exactly how today's topic solves the problem", "what_breaks_without_it": "2-3 sentences on what fails if this concept isn't used", "real_world_examples": ["name of real system 1", "name of real system 2", "name of real system 3"]}
+  "scenario": {"title": "str", "problem": "2-3 sentences describing the real production problem", "system_description": "describe the real system and its components", "how_concept_applies": "2-3 sentences on exactly how today's topic solves the problem", "what_breaks_without_it": "2-3 sentences on what fails if this concept isn't used", "real_world_examples": ["name of real system 1", "name of real system 2", "name of real system 3"]},
+  "_suggestions": [{"slug": "...", "title": "...", "reason": "one sentence, specific to what was just covered"}]
 }
 ```
 
@@ -490,7 +510,7 @@ Wait for the agent. Log: `Quiz+Insights done`. Then:
 
 1. Parse the result
 2. Read `/Users/sumanthg/Documents/teach-me/.teach/current_lesson.json`
-3. Merge in: `key_insights`, `quiz`, `summary`, `further_reading`, `design_kata`
+3. Merge in: `key_insights`, `quiz`, `summary`, `further_reading`, `design_kata`, `scenario`, `_suggestions`
 4. Set `_generation_status: "complete"`
 5. Write merged JSON back to `current_lesson.json`
 6. Output: `Generation complete.`

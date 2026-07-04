@@ -82,82 +82,9 @@ def _read_json(path: Path) -> dict:
         raise HTTPException(status_code=500, detail=f"JSON parse error: {e}")
 
 
-def _generate_suggestions(lesson_data: dict) -> list:
-    """Call Claude to generate 3 contextual topic suggestions based on the lesson."""
-    if not _ANTHROPIC_AVAILABLE:
-        return []
-    try:
-        meta = lesson_data.get("meta", {}) or {}
-        title = meta.get("title", "")
-        slug = meta.get("slug", "")
-        concepts = [c.get("title", "") for c in lesson_data.get("core_concepts", []) if isinstance(c, dict)]
-        insights = lesson_data.get("key_insights", [])[:3]
-
-        curriculum = _load_json_safe(CURRICULUM_PATH)
-        memory = _load_json_safe(MEMORY_PATH)
-        completed_slugs = {c.get("slug", "") for c in memory.get("completed", []) if isinstance(c, dict)}
-        completed_slugs.add(slug)
-
-        available: list = []
-        for track in curriculum.get("tracks", []):
-            if not isinstance(track, dict):
-                continue
-            for item in track.get("ladder", []):
-                if not isinstance(item, dict):
-                    continue
-                s = item.get("slug", "")
-                if s not in completed_slugs:
-                    available.append(f"- {item['title']} (slug: {s})")
-
-        available_str = "\n".join(available[:80])
-
-        client = _anthropic.Anthropic()
-        resp = client.messages.create(
-            model="claude-haiku-4-5-20251001",
-            max_tokens=600,
-            messages=[{
-                "role": "user",
-                "content": (
-                    f"A senior AI backend engineer just finished studying: \"{title}\"\n"
-                    f"Key concepts covered: {concepts}\n"
-                    f"Key insights: {insights}\n\n"
-                    f"From the available topics below, suggest exactly 3 that would complement "
-                    f"what they just learned. Pick topics where studying them NOW, right after this "
-                    f"lesson, would create a strong knowledge connection — not just 'what's next in "
-                    f"the curriculum' but what would genuinely deepen or extend today's understanding.\n\n"
-                    f"Available topics:\n{available_str}\n\n"
-                    "Return ONLY valid JSON array of exactly 3 objects with these fields:\n"
-                    "slug (str), title (str), reason (str — one sentence, specific to what they just "
-                    "learned, e.g. 'You saw how X works; this shows how Y complements it in production')\n"
-                    "No markdown, no extra text."
-                ),
-            }],
-        )
-        text = resp.content[0].text.strip()
-        if text.startswith("```"):
-            text = text.split("```")[1].lstrip("json").strip().rstrip("```").strip()
-        suggestions = json.loads(text)
-        if isinstance(suggestions, list):
-            return suggestions[:3]
-    except Exception:
-        pass
-    return []
-
-
 @app.get("/api/lesson")
 def get_lesson():
-    data = _read_json(LESSON_PATH)
-    if not isinstance(data, dict):
-        return data
-    if "_suggestions" not in data:
-        suggestions = _generate_suggestions(data)
-        if suggestions:
-            data["_suggestions"] = suggestions
-            try:
-                LESSON_PATH.write_text(json.dumps(data, indent=2))
-            except Exception:
-                pass
-    return data
+    return _read_json(LESSON_PATH)
 
 
 @app.get("/api/library")
