@@ -40,6 +40,7 @@ ARCHIVE_DIR = BASE / "archive"
 CURRICULUM_PATH = BASE / "curriculum-v2.json"
 
 NOTES_PATH = BASE / "notes.json"
+WISHLIST_PATH = BASE / "wishlist.json"
 
 BOOKMARKS_PATH = BASE / "bookmarks.json"
 SUMMARIES_DIR = BASE / "summaries"
@@ -742,6 +743,56 @@ def _generate_summary(completed: list, count: int) -> None:
     except Exception:
         pass  # Never crash the session log
 
+
+
+# ---------------------------------------------------------------------------
+# Wishlist
+# ---------------------------------------------------------------------------
+
+class WishlistItem(BaseModel):
+    topic: str
+
+
+@app.get("/api/wishlist")
+def get_wishlist():
+    try:
+        items = json.loads(WISHLIST_PATH.read_text()) if WISHLIST_PATH.exists() else []
+        return {"items": items}
+    except Exception:
+        return {"items": []}
+
+
+@app.post("/api/wishlist")
+def add_wishlist(payload: WishlistItem):
+    topic = payload.topic.strip()
+    if not topic:
+        raise HTTPException(status_code=400, detail="Topic cannot be empty")
+    try:
+        items = json.loads(WISHLIST_PATH.read_text()) if WISHLIST_PATH.exists() else []
+    except Exception:
+        items = []
+    item_id = f"w{int(datetime.now().timestamp() * 1000)}"
+    items.append({
+        "id": item_id,
+        "topic": topic,
+        "added_date": datetime.now().strftime("%Y-%m-%d"),
+        "surfaced": False,
+    })
+    WISHLIST_PATH.write_text(json.dumps(items, indent=2))
+    return {"ok": True, "id": item_id}
+
+
+@app.delete("/api/wishlist/{item_id}")
+def delete_wishlist(item_id: str):
+    try:
+        items = json.loads(WISHLIST_PATH.read_text()) if WISHLIST_PATH.exists() else []
+    except Exception:
+        items = []
+    new_items = [i for i in items if i.get("id") != item_id]
+    if len(new_items) == len(items):
+        raise HTTPException(status_code=404, detail="Item not found")
+    WISHLIST_PATH.write_text(json.dumps(new_items, indent=2))
+    return {"ok": True}
 
 
 @app.get("/api/til")

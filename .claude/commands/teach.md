@@ -125,7 +125,7 @@ If any are due:
 
 **If no topic provided — score candidates from the curriculum graph:**
 
-Read `/Users/sumanthg/Documents/teach-me/.teach/curriculum-v2.json`. Build the candidate pool and context:
+Read `/Users/sumanthg/Documents/teach-me/.teach/curriculum-v2.json` and `/Users/sumanthg/Documents/teach-me/.teach/wishlist.json` (if it exists). Build the candidate pool and context:
 
 ```python
 import json, datetime
@@ -162,6 +162,17 @@ weak_areas_list = ", ".join([
     if not (isinstance(w, dict) and w.get('retired'))
 ]) or "None"
 rotation_hint = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+# Read wishlist
+import pathlib, json as _json
+_wl_path = pathlib.Path('/Users/sumanthg/Documents/teach-me/.teach/wishlist.json')
+wishlist_items = []
+if _wl_path.exists():
+    try:
+        wishlist_items = [i for i in _json.loads(_wl_path.read_text()) if not i.get('surfaced')]
+    except Exception:
+        wishlist_items = []
+wishlist_topics = [i['topic'] for i in wishlist_items]
 ```
 
 Spawn **one Agent** with **subagent_type `ai-engineer`** using this exact prompt (substitute the [PLACEHOLDERS]):
@@ -179,6 +190,9 @@ WEAK AREAS (non-retired): [WEAK_AREAS_LIST]
 
 TRACK DEFICITS (positive = under-covered vs target mix): [DEFICITS]
 
+WISHLIST (topics the user flagged to study — highest priority signal):
+[WISHLIST_TOPICS]
+
 CANDIDATES (fields: slug, title, track, kind, concepts, builds_on, related, difficulty, estimated_minutes, note):
 [CANDIDATES_JSON]
 
@@ -188,13 +202,14 @@ SELECTION RULES:
 3. OPTION 3 — WILDCARD. Seeded by ROTATION HINT — any remaining candidate, from a third track if possible.
 4. CAPSTONE PRIORITY: if any candidate has kind "design_session", it MUST be option 1 — its building blocks are done, time to compose them.
 5. Readiness is soft: few completed builds_on lowers preference but never disqualifies. If you pick a low-readiness candidate, say so in why_next ("we'll backfill X inline").
+6. WISHLIST PRIORITY (overrides rules 1-3 when applicable): If any WISHLIST topic matches a candidate slug or title closely → that candidate MUST appear as one of the 3 options (replace the lowest-priority of momentum/gap/wildcard). If a wishlist topic needs prerequisites not yet completed → surface the prerequisite candidate instead, and note "prerequisite for [wishlist topic]" in why_next. Use your judgment on readiness — don't surface a wishlist topic if its required concepts aren't in place. Each option can only serve one wishlist item.
 
 Return ONLY a valid JSON array of exactly 3 objects — each copied verbatim from CANDIDATES with two fields added:
 "why_next": "1-2 direct sentences", "basis": "momentum|gap|wildcard|capstone"
 No markdown fences.
 ```
 
-Substitute: [TODAY] = today, [ROTATION_HINT] = rotation_hint, [RECENT] = formatted recent list, [WEAK_AREAS_LIST] = weak_areas_list, [DEFICITS] = deficits dict, [CANDIDATES_JSON] = the candidates list as JSON.
+Substitute: [TODAY] = today, [ROTATION_HINT] = rotation_hint, [RECENT] = formatted recent list, [WEAK_AREAS_LIST] = weak_areas_list, [DEFICITS] = deficits dict, [CANDIDATES_JSON] = the candidates list as JSON, [WISHLIST_TOPICS] = wishlist_topics as a JSON array (empty array if no wishlist items).
 
 Parse the agent's JSON array. Validate: every returned slug must exist in the candidate pool — discard invented items.
 
@@ -238,6 +253,8 @@ When the user replies:
 - Any other text: treat as a custom topic override (title = that text, slug = kebab-case of it, track = "wildcard", domain = "custom", concepts = [], estimated_minutes = 45, difficulty = "advanced", kind = "lesson")
 
 Output: `🤖 Going with: [chosen title]`
+
+**Mark wishlist item as surfaced** (if the chosen topic matches one): Check if the chosen topic's title or slug fuzzy-matches any item in `wishlist_items`. If so, update that item's `surfaced: true` in `wishlist.json` and write it back.
 
 If the chosen option has `kind == "design_session"`: skip the fast-path check and Steps 3–4 entirely — go directly to **Step 4-DS**.
 

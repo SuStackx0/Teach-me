@@ -1,10 +1,13 @@
 import { NavLink } from 'react-router-dom'
 import { useEffect, useState } from 'react'
+import WishlistPanel from './WishlistPanel.jsx'
 
 export default function TopNav() {
   const [streak, setStreak] = useState(null)
   const [notesCount, setNotesCount] = useState(0)
   const [dark, setDark] = useState(() => localStorage.getItem('theme') === 'dark')
+  const [wishlistOpen, setWishlistOpen] = useState(false)
+  const [wishlistCount, setWishlistCount] = useState(0)
 
   useEffect(() => {
     fetch('/api/memory')
@@ -15,6 +18,11 @@ export default function TopNav() {
     fetch('/api/notes')
       .then(r => r.ok ? r.json() : null)
       .then(data => { if (data) setNotesCount(data.total || 0) })
+      .catch(() => {})
+
+    fetch('/api/wishlist')
+      .then(r => r.ok ? r.json() : null)
+      .then(data => { if (data) setWishlistCount((data.items || []).filter(i => !i.surfaced).length) })
       .catch(() => {})
   }, [])
 
@@ -54,12 +62,44 @@ export default function TopNav() {
       )}
 
       <button
+        onClick={() => setWishlistOpen(o => !o)}
+        title="Study Wishlist"
+        style={{
+          position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center',
+          width: 34, height: 34, borderRadius: 9,
+          border: `1px solid ${wishlistOpen ? 'var(--accent)' : 'var(--border)'}`,
+          background: wishlistOpen ? 'var(--accent-dim)' : 'var(--surface-2)',
+          color: wishlistOpen ? 'var(--accent-bright)' : 'var(--text-muted)',
+          cursor: 'pointer', fontSize: '1rem',
+          transition: 'border-color 0.13s, color 0.13s, background 0.13s',
+        }}
+      >
+        ◈
+        {wishlistCount > 0 && (
+          <span style={{
+            position: 'absolute', top: -4, right: -4,
+            minWidth: 15, height: 15, borderRadius: 999,
+            background: 'var(--accent)', color: 'var(--bg)',
+            fontFamily: 'IBM Plex Mono, monospace', fontSize: '0.55rem', fontWeight: 700,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            padding: '0 3px', border: '1.5px solid var(--bg)',
+          }}>{wishlistCount}</span>
+        )}
+      </button>
+
+      <button
         className="theme-toggle"
         onClick={() => setDark(d => !d)}
         title={dark ? 'Switch to light mode' : 'Switch to dark mode'}
       >
         {dark ? '☀︎' : '◑'}
       </button>
+
+      <WishlistPanel
+        open={wishlistOpen}
+        onClose={() => setWishlistOpen(false)}
+        onCountChange={setWishlistCount}
+      />
     </nav>
   )
 }
