@@ -4,7 +4,7 @@ function buildSections(lesson) {
   const s = ['hook', 'concept_map']
   const concepts = lesson.core_concepts || []
   concepts.forEach((_, i) => s.push(`concept:${i}`))
-  s.push('insights', 'quiz', 'challenge', 'summary', 'complete')
+  s.push('scenario', 'insights', 'quiz', 'challenge', 'summary', 'complete')
   return s
 }
 
@@ -16,7 +16,7 @@ export function sectionLabel(section, lesson) {
     const c = (lesson.core_concepts || [])[idx]
     return c ? c.title : `Concept ${idx + 1}`
   }
-  const map = { insights: 'Key Insights', quiz: 'Quiz', challenge: 'Coding Challenge', summary: 'Summary', complete: 'Complete' }
+  const map = { scenario: 'Scenario', insights: 'Key Insights', quiz: 'Quiz', challenge: 'Coding Challenge', summary: 'Summary', complete: 'Complete' }
   return map[section] || section
 }
 
