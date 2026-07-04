@@ -453,6 +453,8 @@ FURTHER_READING: 2-3 resources. One sentence each on why this specific resource 
 
 DESIGN_KATA: one applied, 5-minute design decision using today's topic, phrased as a concrete production situation — something with real constraints (traffic numbers, latency budget, failure scenario), asking the reader to make and justify one decision. Not a full system design — a single focused call.
 
+SCENARIO: a concrete end-to-end production scenario showing this topic in action. A real system, a real problem, how the concept solves it, what breaks without it.
+
 LANGUAGE: Short sentences. Plain words. No "it is worth noting", "fundamentally", "in essence".
 
 Return ONLY a single JSON object (no markdown):
@@ -461,7 +463,8 @@ Return ONLY a single JSON object (no markdown):
   "key_insights": [{"kind": "insight|gotcha|tip", "title": "...", "text": "..."}],
   "summary": {"one_liner": "...", "takeaways": ["..."]},
   "further_reading": [{"title": "...", "url": null, "kind": "paper|blog|docs|book", "why": "..."}],
-  "design_kata": {"prompt": "one applied 5-minute design decision using today's topic, phrased as a concrete production situation", "strong_answer": "what a strong answer covers, 3-4 bullets"}
+  "design_kata": {"prompt": "one applied 5-minute design decision using today's topic, phrased as a concrete production situation", "strong_answer": "what a strong answer covers, 3-4 bullets"},
+  "scenario": {"title": "str", "problem": "2-3 sentences describing the real production problem", "system_description": "describe the real system and its components", "how_concept_applies": "2-3 sentences on exactly how today's topic solves the problem", "what_breaks_without_it": "2-3 sentences on what fails if this concept isn't used", "real_world_examples": ["name of real system 1", "name of real system 2", "name of real system 3"]}
 }
 ```
 

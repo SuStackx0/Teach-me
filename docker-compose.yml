@@ -7,4 +7,5 @@ services:
       - ./.teach:/app/.teach
     environment:
       - TEACH_DATA_DIR=/app/.teach
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
     restart: unless-stopped
