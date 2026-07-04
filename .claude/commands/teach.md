@@ -1,3 +1,4 @@
+
 # /teach — Daily AI Lesson Generator
 
 Generate and deliver a deep, expert-level lesson covering AI engineering, backend systems, and system design. Track progress and launch the React viewer.
@@ -21,6 +22,7 @@ cat /Users/sumanthg/Documents/teach-me/.teach/memory.json
 ```
 
 Extract and display:
+
 - Number of completed topics (count of `completed[]`)
 - Current streak from `streak`
 - Any `weak_areas` from memory (you'll reinforce these naturally in the lesson)
@@ -41,6 +43,7 @@ Run these checks every time, right after reading `memory.json`. Fix silently (no
 
 **(a) Stale in_progress vs current_lesson:**
 If `in_progress != null`: read `.teach/current_lesson.json` (if it exists) and compare `meta.slug` to `in_progress`.
+
 - If `current_lesson.json` does not exist, OR its `meta.slug` does not match `in_progress`: set `in_progress = null` in `memory.json` and write it back. Note internally: "state repaired". Do not alarm the user — just proceed with a clean state.
 - If it matches, leave as-is (normal crash-recovery flow in Step 2a still applies).
 
@@ -62,6 +65,7 @@ cat /Users/sumanthg/Documents/teach-me/.teach/current_lesson.json 2>/dev/null | 
 ```
 
 If the above condition is true:
+
 - Output: `⚠️  Found incomplete session: [in_progress slug]. Phase 1 is on disk but assessments didn't finish.`
 - Output: `Resuming Phase 2...`
 - Run Step 4d immediately, using the existing `current_lesson.json`'s `core_concepts` titles and key points as context for the assessment agents.
@@ -72,6 +76,7 @@ If the above condition is true:
 Read `completed[]` from `memory.json`. Find any entry where `next_review_date <= today's date` (use the actual current date — check with `date +%F`).
 
 If any are due:
+
 - Select the one with the **earliest** `next_review_date` (this is the one-review-per-day pick).
 - **Uniqueness guard:** this selection step never changes existing dates — the guard below only applies when a *new* `next_review_date` is computed in Step 8. Whenever Step 8 computes a new `next_review_date` for any `completed[]` entry, check every OTHER entry's `next_review_date` in `completed[]`. If the new date collides with one already in use, push the new date forward by one day, repeat the collision check, until it lands on a date no other entry has.
 - Output: `📚 Review due: [slug title]. Spaced repetition session starting...`
@@ -112,6 +117,7 @@ If any are due:
 ### Step 2c — New Topic Selection (Dynamic)
 
 **If the user invoked `/teach [topic]`:**
+
 - Use that text as-is (freeform — any topic the user wants to learn)
 - Set: title = the user topic text, slug = kebab-case version of it, domain = "custom", concepts = [], estimated_minutes = 45, difficulty = "advanced"
 - Output: `📖 Custom topic: [topic]. Generating lesson...`
@@ -193,10 +199,11 @@ Substitute: [TODAY] = today, [ROTATION_HINT] = rotation_hint, [RECENT] = formatt
 Parse the agent's JSON array. Validate: every returned slug must exist in the candidate pool — discard invented items.
 
 **Fallback (agent fails, bad JSON, or <3 valid items) — pick deterministically from candidates, no agent needed:**
+
 1. momentum: a candidate sharing a builds_on/related edge (either direction) with the most recent completed slug; if none, any candidate in that same track
 2. gap: first candidate in the highest-deficit track not already picked
 3. wildcard: any remaining candidate from a third track
-Write a one-line why_next from each candidate's `note`/`concepts`; set `basis` accordingly.
+   Write a one-line why_next from each candidate's `note`/`concepts`; set `basis` accordingly.
 
 **Present the 3 options to the user and STOP:**
 
@@ -226,6 +233,7 @@ Reply 1, 2, or 3 — or type any topic to use something else entirely.
 **STOP HERE. Do NOT proceed until the user replies.**
 
 When the user replies:
+
 - "1", "2", or "3": use that option's full JSON object as the chosen topic
 - Any other text: treat as a custom topic override (title = that text, slug = kebab-case of it, track = "wildcard", domain = "custom", concepts = [], estimated_minutes = 45, difficulty = "advanced", kind = "lesson")
 
@@ -238,6 +246,7 @@ If an option has kind `design_session`, prefix its title in the picker block wit
 **Fast-path check (run after user picks, before Step 3):**
 
 Check if `/Users/sumanthg/Documents/teach-me/.teach/next_lesson.json` exists:
+
 - Read it and check `meta.slug`
 - If `meta.slug` matches the chosen topic slug:
   - Copy `next_lesson.json` → `current_lesson.json` (use the Write tool: read next_lesson.json, write its content to current_lesson.json)
@@ -274,6 +283,7 @@ Concepts: [from agent response .concepts joined as comma-separated list]
 **Do NOT generate the lesson serially. Use the Agent tool to parallelise.**
 
 Output:
+
 ```
 Spinning up parallel agents...
 ```
@@ -378,6 +388,7 @@ Parse each concept agent's JSON output. Each parsed concept object (including it
 Read `/Users/sumanthg/Documents/teach-me/.teach/question_bank.json`. Its `questions[]` array has fields: `id, source_slug, source_title, domain, type, question, options, answer, explanation, times_asked, times_correct, last_asked`.
 
 **Selection — pick 5 questions in this priority order, filling from each bucket before moving to the next, skipping already-picked questions:**
+
 1. **(a) Due for review:** questions whose `source_slug` matches a `completed[]` entry with `next_review_date` within 3 days of today (i.e. `today <= next_review_date <= today+3`).
 2. **(b) Weak scorers:** questions whose `source_slug` matches a `completed[]` entry with `quiz_score_pct < 0.6` or `quiz_score_pct == null`.
 3. **(c) Weak-area text overlap:** questions whose `question` text overlaps (shares a key phrase/word) with any non-retired `weak_areas[].phrase`.
@@ -388,6 +399,7 @@ Read `/Users/sumanthg/Documents/teach-me/.teach/question_bank.json`. Its `questi
 **After selecting the 5**, update each chosen question in `question_bank.json`: `times_asked += 1`, `last_asked = today (YYYY-MM-DD)`. Write `question_bank.json` back and validate with `python3 json.load`.
 
 **Map each selected bank question into the warm_up JSON shape** the React app reads (field names must match exactly — do not invent new ones):
+
 ```json
 {
   "id": N,
@@ -398,6 +410,7 @@ Read `/Users/sumanthg/Documents/teach-me/.teach/question_bank.json`. Its `questi
   "follow_up": "[one short natural follow-up question you write, deepening the same concept]"
 }
 ```
+
 `id` is a fresh sequential integer (1-5) local to this lesson's `warm_up` array — it is NOT the bank's `id` string (keep the bank id only inside your own bookkeeping for Step 8c write-back; store it as `source_question_id` alongside the mapped object so debrief can update the right bank entry).
 
 Write Phase 1 JSON to `/Users/sumanthg/Documents/teach-me/.teach/current_lesson.json`.
@@ -406,6 +419,7 @@ Update `memory.json`: set `in_progress` to the topic slug.
 Output: `Phase 1 written · starting servers...`
 
 Check and start server:
+
 ```bash
 lsof -i :8001 | grep LISTEN || (cd /Users/sumanthg/Documents/teach-me && docker compose up -d)
 sleep 2
@@ -413,11 +427,13 @@ lsof -i :8001 | grep LISTEN
 ```
 
 If port 8001 is up after the sleep, open it:
+
 ```bash
 open http://localhost:8001
 ```
 
 If port 8001 is NOT up after the sleep, output this message and stop:
+
 ```
 ⚠️  Server didn't start automatically.
 Run this in a terminal: cd /Users/sumanthg/Documents/teach-me && docker compose up -d
@@ -425,6 +441,7 @@ Then open: http://localhost:8001
 ```
 
 Output:
+
 ```
 ⚡ http://localhost:8001 — study this, come back and say "done" when finished.
    Assessment agents generating in background...
@@ -439,6 +456,7 @@ Output: `Spawning assessment agent (quiz + insights)...`
 **Call the Agent tool once** for quiz+insights. Pass the topic title and a summary of each concept's title + key points as context.
 
 **Quiz+Insights agent prompt:**
+
 ```
 Generate quiz questions AND key insights for a lesson on "[TOPIC]".
 Concepts: [CONCEPT_TITLES_AND_SUMMARIES]
@@ -469,6 +487,7 @@ Return ONLY a single JSON object (no markdown):
 ```
 
 Wait for the agent. Log: `Quiz+Insights done`. Then:
+
 1. Parse the result
 2. Read `/Users/sumanthg/Documents/teach-me/.teach/current_lesson.json`
 3. Merge in: `key_insights`, `quiz`, `summary`, `further_reading`, `design_kata`
@@ -485,6 +504,7 @@ Capstones are produce-then-critique sessions. They run **entirely in the termina
 Update `memory.json`: set `in_progress` to the capstone slug. Then:
 
 1. **Present the brief.** Output the capstone's `prompt` requirements, then:
+
    ```
    Your move — write your design:
    • components & data flow
@@ -494,19 +514,19 @@ Update `memory.json`: set `in_progress` to the capstone slug. Then:
    • the tradeoffs you chose and why
    Bullet points are fine. Say "hint" if stuck.
    ```
-   **STOP and wait for their design.**
 
+   **STOP and wait for their design.**
 2. **Critique against the rubric.** Peer-review tone — direct, evidence-based, no cheerleading. Score each dimension 1–5 with a one-line justification:
+
    - **Requirements** — did they pin down scale, latency, consistency needs before designing?
    - **Capacity math** — do the numbers exist, and do they add up?
    - **Bottleneck** — did they identify the real one?
    - **Failure modes** — crash, partition, overload all handled?
    - **Tradeoffs** — articulated and justified, not just asserted?
-   Cross-reference their completed topics from `curriculum-v2.json`: "you covered quorum writes — where are they in this design?"
-
+     Cross-reference their completed topics from `curriculum-v2.json`: "you covered quorum writes — where are they in this design?"
 3. **One revision round.** Invite a revision targeting the weakest 1–2 dimensions. Re-score only those. If the user says "done" instead, proceed to logging.
-
 4. **Log on "done".** Compute `overall = mean(final dimension scores) / 5`. Then:
+
    - `memory.json`: append to `completed[]` — `{slug, title, domain: "design-session", date: today, quiz_score_pct: overall, time_spent_minutes: estimate, weak_areas: [each dimension scoring <= 2, as a short phrase like "capacity math"], notes: "1-2 sentence summary of design strengths/gaps", next_review_date: per the normal score rules}`. Set `in_progress: null`. Update `streak` and `last_session_date` per the normal rules.
    - `curriculum-v2.json`: set the capstone's `status: "completed"`, add `completed_date` and `quiz_score_pct`.
    - **Skip the normal Step 8 debrief questions** — the rubric already captured scores and weak areas.
@@ -517,30 +537,35 @@ Update `memory.json`: set `in_progress` to the capstone slug. Then:
 ## Lesson Generation Rules — Read These Every Time
 
 ### Depth & Tone
+
 - **SCENARIO FIRST, ALWAYS.** Every concept and section should open with a concrete situation, not a definition. Bad: "Raft is a consensus algorithm." Good: "Your Redis cluster just lost its primary. Three replicas are now fighting over who's in charge. Without consensus, they'll all start accepting writes and split-brain will corrupt your data."
 - **PLAIN WORDS, SHORT SENTENCES.** Write like a Slack message to a smart colleague, not a conference paper. Never use: "leverages", "facilitates", "fundamentally", "in essence", "it is worth noting", "underpins", "inherently".
 - Reference real systems: vLLM, FlashAttention, Kafka, Redis, etcd, Kubernetes, Raft, PostgreSQL, Triton, SGLang, Medusa, EAGLE.
 - Numbers and math only when the formula unlocks understanding. Always say what breaks if you get it wrong.
 
 ### Code Rules
+
 - Code in concepts is **illustrative snippets only** — 5-10 lines, no imports needed, pseudocode-adjacent is fine.
 - The goal is to show the concept, not to ship runnable code. Clarity beats completeness.
 - Use realistic variable names and values (e.g. `H=64, G=8` not `x=4, y=1`).
 - No `line_by_line` field — the snippet caption + the explanation text carries that context.
 
 ### Quiz Rules (5-8 questions)
+
 - Include all 4 types; at least 1 `code_reading`.
 - Distractors must be **plausible to an expert** — common misconceptions, off-by-one conditions, things that are true in related contexts but not here.
 - Explanations must explain **why each wrong option is wrong**, not just confirm the right answer.
 - Avoid trivial recall questions. Every question should require understanding, not memory.
 
 ### Diagram Rules
+
 - Mermaid must be syntactically valid: use `flowchart TD` or `graph LR`
 - Node labels: no spaces — use underscores or CamelCase (e.g., `Draft_Model` not `Draft Model`)
 - ASCII diagrams: use consistent column alignment
 - At minimum: one concept_map diagram + at least one diagram per major core concept
 
 ### Weak Areas Reinforcement
+
 - If `memory.json` has `weak_areas` entries (filter `retired == false`), identify where in the lesson those areas naturally come up
 - Add a `key_insights` entry of kind `"gotcha"` that directly addresses the weak area
 - Do not announce "I'm reinforcing your weak area" — just do it
@@ -598,7 +623,7 @@ If `in_progress` starts with `"review-"`, run this flow instead of the normal de
    - score >= 80% → next_review_date = today + 28 days
    - score 60–79% → next_review_date = today + 14 days
    - score < 60% → next_review_date = today + 7 days
-   Apply the same **uniqueness guard** as Step 8: if this date collides with another entry's `next_review_date` in `completed[]`, push forward one day at a time until unique.
+     Apply the same **uniqueness guard** as Step 8: if this date collides with another entry's `next_review_date` in `completed[]`, push forward one day at a time until unique.
 3. In `memory.json`, find the `completed[]` entry for the original slug (strip the `"review-"` prefix). Update its `next_review_date`.
 4. Set `in_progress` to `null`.
 5. Write `memory.json`.
@@ -619,22 +644,29 @@ e.g. "batch speculation", "acceptance rate math", "warp scheduling")
 Wait for their answer. Use it to populate `weak_areas`.
 
 **Design kata.** If `current_lesson.json` has a `design_kata` field and the user hasn't seen it yet this session, show it now:
+
 ```
 One more thing — a quick design call:
 
 [design_kata.prompt]
 ```
+
 Wait for their answer. Judge it pass/fail against `design_kata.strong_answer` — be strict but fair. Give a one-line verdict:
+
 ```
 Verdict: PASS — [one clause on why] / FAIL — [one clause on what was missing]
 ```
+
 Remember this as `kata_passed: true/false` for the `completed[]` entry written later in this step. If there is no `design_kata` field on the lesson (e.g. an older pre-generated lesson), skip this and omit `kata_passed` from the completed entry.
 
 **Warm-up recap.** Ask:
+
 ```
 Warm-up: which question numbers did you miss? (e.g. 2,4 — or none)
 ```
+
 Wait for their answer. Parse the numbers (or "none" = all 5 correct). For each of the 5 warm-up questions:
+
 - If its number was NOT in the missed list (i.e. answered correctly):
   - In `question_bank.json`, find the bank question by the `source_question_id` you stored when building `warm_up` (Step 4c) and increment its `times_correct += 1`.
   - If that warm-up item's `target_weak_area` is non-null: find the matching entry in `memory.json`'s `weak_areas[]` by `phrase` and increment its `reinforced_count += 1`. If `reinforced_count` reaches `>= 2`, set `retired: true` on that entry.
@@ -651,6 +683,7 @@ What was your quiz score? (e.g. "6/8" or "skipped")
 ### Compute next_review_date
 
 From quiz score:
+
 - quiz_score_pct >= 0.8 → next_review_date = today + 14 days
 - quiz_score_pct 0.6–0.79 → next_review_date = today + 7 days
 - quiz_score_pct < 0.6 → next_review_date = today + 2 days
@@ -663,6 +696,7 @@ From quiz score:
 Read the current `.teach/memory.json`, then write back with these changes:
 
 1. **Move `in_progress` → `completed[]`** by appending a new entry:
+
    ```json
    {
      "slug": "[topic slug]",
@@ -677,17 +711,15 @@ Read the current `.teach/memory.json`, then write back with these changes:
      "kata_passed": [true|false — omit this field entirely if the lesson had no design_kata]
    }
    ```
-
 2. **Set `in_progress`** to `null`
-
 3. **Update `streak`:**
+
    - If `last_session_date` == yesterday's date (YYYY-MM-DD): `streak + 1`
    - If `last_session_date` == today (duplicate session): keep streak unchanged
    - Otherwise (gap > 1 day or null): reset `streak` to 1
-
 4. **Set `last_session_date`** to today's date (YYYY-MM-DD)
-
 5. **Append to global `weak_areas`** list: The global `weak_areas` in memory.json is an array of objects. When appending the debrief phrase:
+
    - Check if a non-retired item with the same `phrase` already exists. If yes, skip.
    - If not, append:
      ```json
@@ -703,6 +735,7 @@ Read the current `.teach/memory.json`, then write back with these changes:
 ### Update curriculum-v2.json
 
 Read `/Users/sumanthg/Documents/teach-me/.teach/curriculum-v2.json`:
+
 - If the completed slug exists in any track's `ladder[]` (or is a track's capstone): set its `status: "completed"`, add `completed_date` (today) and `quiz_score_pct`.
 - If the slug is NOT in the graph (custom free-typed topic): append it to the `wildcard` track's ladder as `{slug, title, concepts: [], builds_on: [], difficulty, estimated_minutes, status: "completed", completed_date, quiz_score_pct}` — so future momentum scoring can see it.
 - Write the file back.
@@ -760,12 +793,12 @@ Immediately after printing Step 8's completion output, pre-generate tomorrow's l
 
 ## Error Handling
 
-| Problem | Response |
-|---|---|
-| `.teach/memory.json` missing | Create it fresh with the default schema (streak: 0, completed: [], in_progress: null, last_session_date: null, weak_areas: []). |
-| Server not running | Auto-started by the skill — check `/tmp/teach-server.log` if the page won't load |
-| Port 8001 already in use | API server already running — just open http://localhost:8001 |
-| ai-engineer agent fails to return valid JSON | Use the fallback topic defined in Step 2c and proceed normally. |
+| Problem                                      | Response                                                                                                                        |
+| -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| `.teach/memory.json` missing               | Create it fresh with the default schema (streak: 0, completed: [], in_progress: null, last_session_date: null, weak_areas: []). |
+| Server not running                           | Auto-started by the skill — check`/tmp/teach-server.log` if the page won't load                                              |
+| Port 8001 already in use                     | API server already running — just open http://localhost:8001                                                                   |
+| ai-engineer agent fails to return valid JSON | Use the fallback topic defined in Step 2c and proceed normally.                                                                 |
 
 ---
 
@@ -773,12 +806,12 @@ Immediately after printing Step 8's completion output, pre-generate tomorrow's l
 
 The skill accepts one optional positional argument: any topic description (freeform — not from a fixed list).
 
-| Invocation | Behavior |
-|---|---|
-| `/teach` | Presents 3 diverse topic options (from different domains), waits for you to pick 1, 2, or 3 |
-| `/teach speculative decoding internals` | Skips the picker, generates a lesson on that exact topic immediately |
-| `/teach gRPC for LLM serving` | Skips the picker, generates a cross-domain lesson on that topic |
-| `/teach [any topic]` | Skips the picker, generates a lesson on any topic you specify |
+| Invocation                                | Behavior                                                                                    |
+| ----------------------------------------- | ------------------------------------------------------------------------------------------- |
+| `/teach`                                | Presents 3 diverse topic options (from different domains), waits for you to pick 1, 2, or 3 |
+| `/teach speculative decoding internals` | Skips the picker, generates a lesson on that exact topic immediately                        |
+| `/teach gRPC for LLM serving`           | Skips the picker, generates a cross-domain lesson on that topic                             |
+| `/teach [any topic]`                    | Skips the picker, generates a lesson on any topic you specify                               |
 
 When a topic is provided directly, the picker is skipped and generation starts immediately.
 When using the picker, you can also type any topic name instead of 1/2/3 to override the suggestions.

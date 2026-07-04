@@ -82,9 +82,82 @@ def _read_json(path: Path) -> dict:
         raise HTTPException(status_code=500, detail=f"JSON parse error: {e}")
 
 
+def _compute_next_topics(current_slug: str) -> list:
+    curriculum = _load_json_safe(CURRICULUM_PATH)
+    memory = _load_json_safe(MEMORY_PATH)
+    completed_slugs = {
+        c.get("slug", "") for c in memory.get("completed", []) if isinstance(c, dict)
+    }
+    completed_slugs.add(current_slug)
+
+    all_topics: list = []
+    current_track_id = None
+    for track in curriculum.get("tracks", []):
+        if not isinstance(track, dict):
+            continue
+        track_id = track.get("id", "")
+        for item in track.get("ladder", []):
+            if not isinstance(item, dict):
+                continue
+            slug = item.get("slug", "")
+            if slug == current_slug:
+                current_track_id = track_id
+            if slug in completed_slugs:
+                continue
+            all_topics.append({
+                "slug": slug,
+                "title": item.get("title", ""),
+                "difficulty": item.get("difficulty", ""),
+                "builds_on": item.get("builds_on", []),
+                "related": item.get("related", []),
+                "track_id": track_id,
+                "track_title": track.get("title", ""),
+                "concepts": item.get("concepts", []),
+            })
+
+    def score(t: dict) -> int:
+        if current_slug in t["builds_on"]:
+            return 3
+        if t["track_id"] == current_track_id:
+            return 2
+        if current_slug in t.get("related", []):
+            return 1
+        return 0
+
+    scored = sorted(all_topics, key=lambda t: -score(t))
+    top = [t for t in scored if score(t) > 0][:3]
+    if len(top) < 3:
+        top += [t for t in scored if t not in top and t.get("track_id") == current_track_id][:3 - len(top)]
+    if len(top) < 3:
+        top += [t for t in scored if t not in top][:3 - len(top)]
+
+    result = []
+    for t in top[:3]:
+        s = score(t)
+        if s == 3:
+            why = "Directly builds on today's lesson"
+        elif s == 2:
+            why = f"Next step in {t['track_title']}"
+        else:
+            why = "Related — worth exploring after this"
+        result.append({
+            "slug": t["slug"],
+            "title": t["title"],
+            "difficulty": t["difficulty"],
+            "why": why,
+            "concepts": t["concepts"][:2],
+        })
+    return result
+
+
 @app.get("/api/lesson")
 def get_lesson():
-    return _read_json(LESSON_PATH)
+    data = _read_json(LESSON_PATH)
+    if isinstance(data, dict):
+        slug = data.get("meta", {}).get("slug", "") if isinstance(data.get("meta"), dict) else ""
+        if slug and "next_topics" not in data:
+            data["next_topics"] = _compute_next_topics(slug)
+    return data
 
 
 @app.get("/api/library")
@@ -741,6 +814,7 @@ def _generate_summary(completed: list, count: int) -> None:
         (SUMMARIES_DIR / f"summary_{count}.json").write_text(json.dumps(data, indent=2))
     except Exception:
         pass  # Never crash the session log
+
 
 
 @app.get("/api/til")

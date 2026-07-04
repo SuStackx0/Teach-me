@@ -228,7 +228,7 @@ export default function NotesPanel({ slug, currentSection, lessonTitle, collapse
             onFocus={() => setFocused(true)}
             onBlur={handleBlur}
             onPaste={handlePaste}
-            placeholder={'Type, paste, or select text and press ⌘⇧N to clip…'}
+            placeholder={'Type, paste, or select text and press ⌘L to clip…'}
             spellCheck={false}
           />
         ) : (
@@ -243,7 +243,7 @@ export default function NotesPanel({ slug, currentSection, lessonTitle, collapse
 
       <div className="notes-footer">
         <span className="notes-hint">
-          <kbd>⌘⇧N</kbd> clip selection &nbsp;·&nbsp; <kbd>```</kbd> code block
+          <kbd>⌘L</kbd> clip selection &nbsp;·&nbsp; <kbd>```</kbd> code block
         </span>
       </div>
     </div>

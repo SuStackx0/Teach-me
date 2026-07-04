@@ -13,6 +13,7 @@ import Challenge from './sections/Challenge.jsx'
 import Summary from './sections/Summary.jsx'
 import Complete from './sections/Complete.jsx'
 import Scenario from './sections/Scenario.jsx'
+import CompletionAnimation from './CompletionAnimation.jsx'
 
 export default function TodayView() {
   const [notesCollapsed, setNotesCollapsed] = useState(
@@ -21,6 +22,8 @@ export default function TodayView() {
   const [focusMode, setFocusMode] = useState(
     () => localStorage.getItem('focus-mode') === 'true'
   )
+  const [bookmarkFlash, setBookmarkFlash] = useState(false)
+  const [completing, setCompleting] = useState(false)
   const mainRef = useRef(null)
 
   const {
@@ -39,7 +42,7 @@ export default function TodayView() {
     return sectionLabel(sections[sectionIdx], lesson)
   }, [lesson, sections, sectionIdx])
 
-  const chipPos = useClipAction({
+  const { chipPos, lastSelectedText } = useClipAction({
     mainRef,
     getCurrentSection,
     lessonTitle: lesson?.meta?.title || '',
@@ -106,7 +109,7 @@ export default function TodayView() {
     if (current === 'insights') return <Insights {...sharedProps} />
     if (current === 'quiz') return <Quiz {...sharedProps} quizScore={quizScore} setQuizScore={setQuizScore} />
     if (current === 'challenge') return <Challenge {...sharedProps} />
-    if (current === 'summary') return <Summary {...sharedProps} />
+    if (current === 'summary') return <Summary {...sharedProps} goNext={() => { setCompleting(true); goNext() }} />
     if (current === 'complete') return <Complete {...sharedProps} quizScore={quizScore} startTime={startTime} />
     return null
   }
@@ -115,6 +118,12 @@ export default function TodayView() {
 
   return (
     <div className={shellClass}>
+      {completing && (
+        <CompletionAnimation
+          lessonTitle={lesson?.meta?.title || ''}
+          onDone={() => setCompleting(false)}
+        />
+      )}
       <div className="progress-bar-slot">
         <ProgressBar pct={pct} />
       </div>
@@ -143,11 +152,12 @@ export default function TodayView() {
       />
       {chipPos && (
         <div className="clip-chip" style={{ top: chipPos.top, left: chipPos.left, position: 'fixed', display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-          <span><kbd>⌘⇧L</kbd> Clip to Notes</span>
+          <span><kbd>⌘L</kbd> Clip to Notes</span>
           <button
             className="clip-bookmark-btn"
+            onMouseDown={e => e.preventDefault()}
             onClick={() => {
-              const text = window.getSelection()?.toString().trim()
+              const text = lastSelectedText.current || window.getSelection()?.toString().trim()
               if (!text) return
               const slug = lesson?.meta?.slug || ''
               const section = getCurrentSection()
@@ -155,10 +165,14 @@ export default function TodayView() {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ slug, title: lesson?.meta?.title || '', section, content: text })
+              }).then(() => {
+                setBookmarkFlash(true)
+                setTimeout(() => setBookmarkFlash(false), 1500)
               }).catch(() => {})
               window.getSelection()?.removeAllRanges()
+              lastSelectedText.current = ''
             }}
-          >☆ Bookmark</button>
+          >{bookmarkFlash ? '★ Saved!' : '☆ Bookmark'}</button>
         </div>
       )}
       <button

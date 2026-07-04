@@ -75,7 +75,7 @@
       "next_review_date": "2026-07-14"
     }
   ],
-  "in_progress": null,
+  "in_progress": "complete-mcp-in-detail",
   "requiz_queue": [
     "speculative-decoding-eagle2-draft-trees-acceptance",
     "moe-architecture-sparse-routing-production"

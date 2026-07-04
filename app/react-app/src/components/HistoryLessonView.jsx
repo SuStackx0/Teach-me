@@ -37,7 +37,8 @@ export default function HistoryLessonView() {
     return sectionLabel(sections[sectionIdx], lesson)
   }, [lesson, sections, sectionIdx])
 
-  const chipPos = useClipAction({
+  const [bookmarkFlash, setBookmarkFlash] = useState(false)
+  const { chipPos, lastSelectedText } = useClipAction({
     mainRef,
     getCurrentSection,
     lessonTitle: lesson?.meta?.title || '',
@@ -171,22 +172,27 @@ export default function HistoryLessonView() {
       />
       {chipPos && (
         <div className="clip-chip" style={{ top: chipPos.top, left: chipPos.left, position: 'fixed', display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-          <span><kbd>⌘⇧L</kbd> Clip to Notes</span>
+          <span><kbd>⌘L</kbd> Clip to Notes</span>
           <button
             className="clip-bookmark-btn"
+            onMouseDown={e => e.preventDefault()}
             onClick={() => {
-              const text = window.getSelection()?.toString().trim()
+              const text = lastSelectedText.current || window.getSelection()?.toString().trim()
               if (!text) return
-              const slug = lesson?.meta?.slug || ''
+              const lessonSlug = lesson?.meta?.slug || slug
               const section = getCurrentSection()
               fetch('/api/bookmarks', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ slug, title: lesson?.meta?.title || '', section, content: text })
+                body: JSON.stringify({ slug: lessonSlug, title: lesson?.meta?.title || '', section, content: text })
+              }).then(() => {
+                setBookmarkFlash(true)
+                setTimeout(() => setBookmarkFlash(false), 1500)
               }).catch(() => {})
               window.getSelection()?.removeAllRanges()
+              lastSelectedText.current = ''
             }}
-          >☆ Bookmark</button>
+          >{bookmarkFlash ? '★ Saved!' : '☆ Bookmark'}</button>
         </div>
       )}
       <button

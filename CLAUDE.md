@@ -1,6 +1,7 @@
+
 # teach-me — Daily AI Deep Dive System
 
-A personalized daily teaching tool for Sumanth (AI Backend Engineer, uCube.ai).
+* [ ] 
 
 ## Quick Start
 
@@ -17,13 +18,13 @@ A personalized daily teaching tool for Sumanth (AI Backend Engineer, uCube.ai).
 
 ## Commands
 
-| Command | What it does |
-|---|---|
-| `/teach [topic]` | Full lesson generation (concepts, quiz, insights, design kata) — launches the React viewer |
-| `/grill [topic]` | Standalone terminal quiz session on a past or new topic; also drains the requiz queue |
-| `/drill [category]` | 3-problem back-of-envelope capacity-estimation drill (QPS, storage, GPU economics, etc.) |
-| `/tradeoff [topic]` | Argue-both-sides trainer — steelman two sides of a real architecture decision, then commit to a call |
-| `/postmortem [name]` | Diagnose a real public outage from its timeline before the root cause is revealed |
+| Command                | What it does                                                                                          |
+| ---------------------- | ----------------------------------------------------------------------------------------------------- |
+| `/teach [topic]`     | Full lesson generation (concepts, quiz, insights, design kata) — launches the React viewer           |
+| `/grill [topic]`     | Standalone terminal quiz session on a past or new topic; also drains the requiz queue                 |
+| `/drill [category]`  | 3-problem back-of-envelope capacity-estimation drill (QPS, storage, GPU economics, etc.)              |
+| `/tradeoff [topic]`  | Argue-both-sides trainer — steelman two sides of a real architecture decision, then commit to a call |
+| `/postmortem [name]` | Diagnose a real public outage from its timeline before the root cause is revealed                     |
 
 `/drill`, `/tradeoff`, and `/postmortem` are purely conversational (terminal-only, no React app) and log to their own top-level arrays in `memory.json` (`tradeoff_sessions`, `postmortem_sessions`) or `.teach/drill_stats.json` — they never touch `completed[]`, `streak`, or `weak_areas[]`.
 
@@ -116,12 +117,20 @@ hybrid RAG (Neo4j + Weaviate), LoRA fine-tuning, multi-agent systems, vLLM/SGLan
 **Never re-explain**: attention basics, KV cache basics, RAG basics, LoRA basics.
 **Do**: go to mechanisms, math, production tradeoffs, reference real systems (vLLM, FlashAttention, etc.)
 
-## App Setup (first time)
+## App Setup & Deployment
+
+**IMPORTANT: This project runs in Docker. NEVER run `npm run build` or `pip install` directly.**
+
+To apply any frontend or backend changes:
+```bash
+docker compose up --build -d
+```
+
+That's the only command needed — it rebuilds the React app and restarts the server.
 
 ```bash
-pip install fastapi uvicorn
-cd app/react-app && npm install && npm run build
-# Set ANTHROPIC_API_KEY in environment for interactive features
+# First-time setup only — set in your shell environment:
+export ANTHROPIC_API_KEY=...
 ```
 
 See README.md for the always-on LaunchAgent setup.

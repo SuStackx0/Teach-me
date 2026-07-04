@@ -489,7 +489,6 @@
           "difficulty": "advanced",
           "estimated_minutes": 45,
           "status": "available",
-          "note": "lesson already generated and sitting in current_lesson.json",
           "builds_on": []
         },
         {

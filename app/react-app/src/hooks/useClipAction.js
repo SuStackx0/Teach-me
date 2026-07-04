@@ -46,7 +46,7 @@ export function useClipAction({ mainRef, getCurrentSection, lessonTitle }) {
     const handleKeyDown = (e) => {
       const isMac = navigator.platform.toUpperCase().includes('MAC')
       const modKey = isMac ? e.metaKey : e.ctrlKey
-      if (!modKey || !e.shiftKey || e.key !== 'L') return
+      if (!modKey || e.shiftKey || e.key !== 'l') return
 
       // If focus is in the notes textarea, don't intercept — just focus it
       const active = document.activeElement
@@ -97,7 +97,7 @@ export function useClipAction({ mainRef, getCurrentSection, lessonTitle }) {
     }
   }, [])
 
-  return chipPos
+  return { chipPos, lastSelectedText: lastSelectionRef }
 }
 
 function fireGhostAnimation(sel) {
