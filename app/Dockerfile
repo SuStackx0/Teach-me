@@ -9,7 +9,7 @@ RUN npm run build
 # Stage 2: serve with uvicorn
 FROM python:3.11-slim
 WORKDIR /app
-RUN pip install --no-cache-dir fastapi uvicorn
+RUN pip install --no-cache-dir fastapi uvicorn anthropic
 COPY server.py .
 COPY --from=builder /build/dist ./react-app/dist
 EXPOSE 8001
