@@ -158,8 +158,27 @@ export default function HistoryLessonView() {
         />
       </div>
       <main ref={mainRef} className="main-content section-fade" key={sectionIdx}>
-        <div className="history-banner">
-          Archived lesson — quiz scores are not saved
+        <div className="history-banner" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem' }}>
+          <span>Archived lesson — quiz scores are not saved</span>
+          <a
+            href={`/api/export/${slug}?fmt=md`}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              fontSize: '0.75rem',
+              fontFamily: 'IBM Plex Mono, monospace',
+              padding: '3px 10px',
+              borderRadius: 5,
+              border: '1px solid var(--border)',
+              background: 'var(--surface-2)',
+              color: 'var(--text-muted)',
+              textDecoration: 'none',
+              whiteSpace: 'nowrap',
+              transition: 'border-color 0.13s, color 0.13s',
+            }}
+            onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--accent)'; e.currentTarget.style.color = 'var(--accent)' }}
+            onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--text-muted)' }}
+          >↓ Export MD</a>
         </div>
         {renderSection()}
       </main>

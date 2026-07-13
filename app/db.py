@@ -22,6 +22,11 @@ def get_db(path: Path = DB_PATH) -> sqlite3.Connection:
 def init_db(path: Path = DB_PATH) -> None:
     conn = get_db(path)
     conn.executescript(SCHEMA)
+    # Migration: add self_rating column if it doesn't exist yet
+    try:
+        conn.execute("ALTER TABLE sessions ADD COLUMN self_rating INTEGER DEFAULT NULL")
+    except Exception:
+        pass
     conn.commit()
     conn.close()
 
@@ -83,6 +88,126 @@ CREATE VIRTUAL TABLE IF NOT EXISTS lessons_fts USING fts5(
 CREATE TABLE IF NOT EXISTS scenarios (slug TEXT PRIMARY KEY, content TEXT);
 CREATE TABLE IF NOT EXISTS summaries (session_count INTEGER PRIMARY KEY, content TEXT);
 CREATE TABLE IF NOT EXISTS lesson_queue (slot INTEGER PRIMARY KEY, content TEXT);
+
+-- ── Annotations (Group 1) ──────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS highlights (
+    id TEXT PRIMARY KEY,
+    slug TEXT NOT NULL,
+    section TEXT NOT NULL,
+    text TEXT NOT NULL,
+    color TEXT DEFAULT 'yellow',
+    created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_highlights_slug ON highlights(slug);
+CREATE TABLE IF NOT EXISTS inline_comments (
+    id TEXT PRIMARY KEY,
+    slug TEXT NOT NULL,
+    section TEXT NOT NULL,
+    comment TEXT NOT NULL,
+    created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_inline_comments_slug ON inline_comments(slug);
+CREATE TABLE IF NOT EXISTS glossary (
+    id TEXT PRIMARY KEY,
+    term TEXT NOT NULL,
+    definition TEXT NOT NULL,
+    source_slug TEXT DEFAULT '',
+    created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_glossary_term ON glossary(term);
+CREATE TABLE IF NOT EXISTS snippets (
+    id TEXT PRIMARY KEY,
+    slug TEXT NOT NULL,
+    title TEXT NOT NULL,
+    code TEXT NOT NULL,
+    language TEXT DEFAULT '',
+    tag TEXT DEFAULT '',
+    created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_snippets_slug ON snippets(slug);
+
+-- ── Progress & Recall (Group 2) ────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS section_progress (
+    slug TEXT NOT NULL,
+    section TEXT NOT NULL,
+    checked INTEGER DEFAULT 0,
+    visited_at TEXT,
+    PRIMARY KEY (slug, section)
+);
+
+-- ── Organization (Group 3) ─────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS tags (
+    id TEXT PRIMARY KEY,
+    name TEXT UNIQUE NOT NULL
+);
+CREATE TABLE IF NOT EXISTS lesson_tags (
+    slug TEXT NOT NULL,
+    tag_id TEXT NOT NULL,
+    PRIMARY KEY (slug, tag_id),
+    FOREIGN KEY (tag_id) REFERENCES tags(id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_lesson_tags_slug ON lesson_tags(slug);
+CREATE TABLE IF NOT EXISTS collections (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    description TEXT DEFAULT '',
+    created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS collection_lessons (
+    collection_id TEXT NOT NULL,
+    slug TEXT NOT NULL,
+    position INTEGER DEFAULT 0,
+    PRIMARY KEY (collection_id, slug),
+    FOREIGN KEY (collection_id) REFERENCES collections(id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_collection_lessons_cid ON collection_lessons(collection_id);
+CREATE TABLE IF NOT EXISTS pinned_lessons (
+    slug TEXT PRIMARY KEY,
+    pinned_at TEXT NOT NULL,
+    position INTEGER DEFAULT 0
+);
+CREATE TABLE IF NOT EXISTS lesson_connections (
+    id TEXT PRIMARY KEY,
+    from_slug TEXT NOT NULL,
+    to_slug TEXT NOT NULL,
+    label TEXT DEFAULT '',
+    created_at TEXT NOT NULL,
+    UNIQUE(from_slug, to_slug)
+);
+CREATE INDEX IF NOT EXISTS idx_connections_from ON lesson_connections(from_slug);
+CREATE INDEX IF NOT EXISTS idx_connections_to ON lesson_connections(to_slug);
+
+-- ── Planning & Export (Group 4) ────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS study_plans (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    description TEXT DEFAULT '',
+    target_date TEXT,
+    created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS study_plan_lessons (
+    plan_id TEXT NOT NULL,
+    slug TEXT NOT NULL,
+    position INTEGER DEFAULT 0,
+    done INTEGER DEFAULT 0,
+    PRIMARY KEY (plan_id, slug),
+    FOREIGN KEY (plan_id) REFERENCES study_plans(id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_spl_plan ON study_plan_lessons(plan_id);
+CREATE TABLE IF NOT EXISTS flashcards (
+    id TEXT PRIMARY KEY,
+    source_slug TEXT DEFAULT '',
+    front TEXT NOT NULL,
+    back TEXT NOT NULL,
+    tag TEXT DEFAULT '',
+    created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_flashcards_source ON flashcards(source_slug);
+CREATE TABLE IF NOT EXISTS lesson_visits (
+    slug TEXT PRIMARY KEY,
+    last_visited TEXT NOT NULL,
+    content_hash TEXT DEFAULT ''
+);
 """
 
 # ── Meta helpers ──────────────────────────────────────────────────────────────
@@ -391,3 +516,355 @@ def set_queue_lesson(conn: sqlite3.Connection, slot: int, data: dict) -> None:
         "INSERT INTO lesson_queue(slot,content) VALUES(?,?) ON CONFLICT(slot) DO UPDATE SET content=excluded.content",
         (slot, json.dumps(data)),
     )
+
+
+# ── Highlights ────────────────────────────────────────────────────────────────
+
+def get_highlights(conn, slug=None):
+    if slug:
+        rows = conn.execute("SELECT * FROM highlights WHERE slug=? ORDER BY created_at DESC", (slug,)).fetchall()
+    else:
+        rows = conn.execute("SELECT * FROM highlights ORDER BY created_at DESC").fetchall()
+    return [dict(r) for r in rows]
+
+
+def add_highlight(conn, h):
+    conn.execute(
+        "INSERT INTO highlights(id,slug,section,text,color,created_at) VALUES(?,?,?,?,?,?)",
+        (h["id"], h["slug"], h["section"], h["text"], h.get("color", "yellow"), h["created_at"]),
+    )
+
+
+def delete_highlight(conn, hid):
+    cur = conn.execute("DELETE FROM highlights WHERE id=?", (hid,))
+    return cur.rowcount > 0
+
+
+# ── Inline Comments ───────────────────────────────────────────────────────────
+
+def get_inline_comments(conn, slug):
+    rows = conn.execute("SELECT * FROM inline_comments WHERE slug=? ORDER BY created_at DESC", (slug,)).fetchall()
+    return [dict(r) for r in rows]
+
+
+def add_inline_comment(conn, c):
+    conn.execute(
+        "INSERT INTO inline_comments(id,slug,section,comment,created_at) VALUES(?,?,?,?,?)",
+        (c["id"], c["slug"], c["section"], c["comment"], c["created_at"]),
+    )
+
+
+def delete_inline_comment(conn, cid):
+    cur = conn.execute("DELETE FROM inline_comments WHERE id=?", (cid,))
+    return cur.rowcount > 0
+
+
+def update_inline_comment(conn, cid, comment):
+    conn.execute("UPDATE inline_comments SET comment=? WHERE id=?", (comment, cid))
+
+
+# ── Glossary ──────────────────────────────────────────────────────────────────
+
+def get_glossary(conn):
+    rows = conn.execute("SELECT * FROM glossary ORDER BY term COLLATE NOCASE").fetchall()
+    return [dict(r) for r in rows]
+
+
+def add_glossary_entry(conn, entry):
+    conn.execute(
+        "INSERT INTO glossary(id,term,definition,source_slug,created_at) VALUES(?,?,?,?,?)",
+        (entry["id"], entry["term"], entry["definition"], entry.get("source_slug", ""), entry["created_at"]),
+    )
+
+
+def delete_glossary_entry(conn, eid):
+    cur = conn.execute("DELETE FROM glossary WHERE id=?", (eid,))
+    return cur.rowcount > 0
+
+
+def update_glossary_entry(conn, eid, term, definition):
+    conn.execute("UPDATE glossary SET term=?,definition=? WHERE id=?", (term, definition, eid))
+
+
+# ── Snippets ──────────────────────────────────────────────────────────────────
+
+def get_snippets(conn, tag=None):
+    if tag:
+        rows = conn.execute("SELECT * FROM snippets WHERE tag=? ORDER BY created_at DESC", (tag,)).fetchall()
+    else:
+        rows = conn.execute("SELECT * FROM snippets ORDER BY created_at DESC").fetchall()
+    return [dict(r) for r in rows]
+
+
+def add_snippet(conn, s):
+    conn.execute(
+        "INSERT INTO snippets(id,slug,title,code,language,tag,created_at) VALUES(?,?,?,?,?,?,?)",
+        (s["id"], s["slug"], s["title"], s["code"], s.get("language", ""), s.get("tag", ""), s["created_at"]),
+    )
+
+
+def delete_snippet(conn, sid):
+    cur = conn.execute("DELETE FROM snippets WHERE id=?", (sid,))
+    return cur.rowcount > 0
+
+
+# ── Self-rating ────────────────────────────────────────────────────────────────
+
+def set_self_rating(conn, slug, rating):
+    conn.execute("UPDATE sessions SET self_rating=? WHERE slug=?", (rating, slug))
+
+
+def get_self_rating(conn, slug):
+    row = conn.execute("SELECT self_rating FROM sessions WHERE slug=?", (slug,)).fetchone()
+    return row["self_rating"] if row else None
+
+
+# ── Section Progress ───────────────────────────────────────────────────────────
+
+def get_section_progress(conn, slug):
+    rows = conn.execute(
+        "SELECT section, checked, visited_at FROM section_progress WHERE slug=?", (slug,)
+    ).fetchall()
+    return {r["section"]: {"checked": bool(r["checked"]), "visited_at": r["visited_at"]} for r in rows}
+
+
+def set_section_visited(conn, slug, section, visited_at):
+    conn.execute(
+        """INSERT INTO section_progress(slug,section,checked,visited_at) VALUES(?,?,0,?)
+           ON CONFLICT(slug,section) DO UPDATE SET visited_at=excluded.visited_at""",
+        (slug, section, visited_at),
+    )
+
+
+def set_section_checked(conn, slug, section, checked):
+    from datetime import datetime as _dt
+    now = _dt.now().strftime("%Y-%m-%dT%H:%M:%S")
+    conn.execute(
+        """INSERT INTO section_progress(slug,section,checked,visited_at) VALUES(?,?,?,?)
+           ON CONFLICT(slug,section) DO UPDATE SET checked=excluded.checked, visited_at=excluded.visited_at""",
+        (slug, section, int(checked), now),
+    )
+
+
+# ── Tags ──────────────────────────────────────────────────────────────────────
+
+def get_all_tags(conn):
+    rows = conn.execute(
+        """SELECT t.id, t.name, COUNT(lt.slug) as lesson_count
+           FROM tags t LEFT JOIN lesson_tags lt ON t.id=lt.tag_id
+           GROUP BY t.id ORDER BY t.name COLLATE NOCASE"""
+    ).fetchall()
+    return [dict(r) for r in rows]
+
+
+def get_tags_for_lesson(conn, slug):
+    rows = conn.execute(
+        """SELECT t.id, t.name FROM tags t
+           JOIN lesson_tags lt ON t.id=lt.tag_id WHERE lt.slug=?
+           ORDER BY t.name COLLATE NOCASE""",
+        (slug,),
+    ).fetchall()
+    return [dict(r) for r in rows]
+
+
+def add_tag(conn, tag_id, name):
+    conn.execute("INSERT OR IGNORE INTO tags(id,name) VALUES(?,?)", (tag_id, name))
+
+
+def tag_lesson(conn, slug, tag_id):
+    conn.execute("INSERT OR IGNORE INTO lesson_tags(slug,tag_id) VALUES(?,?)", (slug, tag_id))
+
+
+def untag_lesson(conn, slug, tag_id):
+    conn.execute("DELETE FROM lesson_tags WHERE slug=? AND tag_id=?", (slug, tag_id))
+
+
+def get_lessons_by_tag(conn, tag_name):
+    rows = conn.execute(
+        "SELECT lt.slug FROM lesson_tags lt JOIN tags t ON lt.tag_id=t.id WHERE t.name=?",
+        (tag_name,),
+    ).fetchall()
+    return [r["slug"] for r in rows]
+
+
+# ── Collections ───────────────────────────────────────────────────────────────
+
+def get_collections(conn):
+    rows = conn.execute("SELECT * FROM collections ORDER BY created_at DESC").fetchall()
+    result = []
+    for r in rows:
+        c = dict(r)
+        lesson_rows = conn.execute(
+            "SELECT slug FROM collection_lessons WHERE collection_id=? ORDER BY position", (c["id"],)
+        ).fetchall()
+        c["slugs"] = [l["slug"] for l in lesson_rows]
+        c["lesson_count"] = len(c["slugs"])
+        result.append(c)
+    return result
+
+
+def create_collection(conn, col):
+    conn.execute(
+        "INSERT INTO collections(id,name,description,created_at) VALUES(?,?,?,?)",
+        (col["id"], col["name"], col.get("description", ""), col["created_at"]),
+    )
+
+
+def delete_collection(conn, cid):
+    cur = conn.execute("DELETE FROM collections WHERE id=?", (cid,))
+    return cur.rowcount > 0
+
+
+def add_to_collection(conn, collection_id, slug):
+    max_pos = conn.execute(
+        "SELECT MAX(position) as m FROM collection_lessons WHERE collection_id=?", (collection_id,)
+    ).fetchone()["m"] or 0
+    conn.execute(
+        "INSERT OR IGNORE INTO collection_lessons(collection_id,slug,position) VALUES(?,?,?)",
+        (collection_id, slug, max_pos + 1),
+    )
+
+
+def remove_from_collection(conn, collection_id, slug):
+    conn.execute("DELETE FROM collection_lessons WHERE collection_id=? AND slug=?", (collection_id, slug))
+
+
+# ── Pins ──────────────────────────────────────────────────────────────────────
+
+def get_pinned(conn):
+    rows = conn.execute("SELECT slug, pinned_at, position FROM pinned_lessons ORDER BY position").fetchall()
+    return [dict(r) for r in rows]
+
+
+def pin_lesson(conn, slug):
+    count = conn.execute("SELECT COUNT(*) as c FROM pinned_lessons").fetchone()["c"]
+    if count >= 3:
+        return False
+    from datetime import datetime as _dt
+    conn.execute(
+        "INSERT OR IGNORE INTO pinned_lessons(slug,pinned_at,position) VALUES(?,?,?)",
+        (slug, _dt.now().strftime("%Y-%m-%dT%H:%M:%S"), count),
+    )
+    return True
+
+
+def unpin_lesson(conn, slug):
+    cur = conn.execute("DELETE FROM pinned_lessons WHERE slug=?", (slug,))
+    return cur.rowcount > 0
+
+
+# ── Connections ───────────────────────────────────────────────────────────────
+
+def get_connections(conn, slug):
+    rows = conn.execute(
+        "SELECT * FROM lesson_connections WHERE from_slug=? OR to_slug=?", (slug, slug)
+    ).fetchall()
+    return [dict(r) for r in rows]
+
+
+def add_connection(conn, conn_obj):
+    conn.execute(
+        "INSERT OR IGNORE INTO lesson_connections(id,from_slug,to_slug,label,created_at) VALUES(?,?,?,?,?)",
+        (conn_obj["id"], conn_obj["from_slug"], conn_obj["to_slug"], conn_obj.get("label", ""), conn_obj["created_at"]),
+    )
+
+
+def delete_connection(conn, cid):
+    cur = conn.execute("DELETE FROM lesson_connections WHERE id=?", (cid,))
+    return cur.rowcount > 0
+
+
+# ── Study Planner ─────────────────────────────────────────────────────────────
+
+def get_study_plans(conn):
+    rows = conn.execute("SELECT * FROM study_plans ORDER BY created_at DESC").fetchall()
+    result = []
+    for r in rows:
+        p = dict(r)
+        lessons = conn.execute(
+            "SELECT slug, position, done FROM study_plan_lessons WHERE plan_id=? ORDER BY position", (p["id"],)
+        ).fetchall()
+        p["lessons"] = [dict(l) for l in lessons]
+        done = sum(1 for l in p["lessons"] if l["done"])
+        p["progress"] = f"{done}/{len(p['lessons'])}"
+        result.append(p)
+    return result
+
+
+def create_study_plan(conn, plan):
+    conn.execute(
+        "INSERT INTO study_plans(id,name,description,target_date,created_at) VALUES(?,?,?,?,?)",
+        (plan["id"], plan["name"], plan.get("description", ""), plan.get("target_date"), plan["created_at"]),
+    )
+
+
+def delete_study_plan(conn, pid):
+    cur = conn.execute("DELETE FROM study_plans WHERE id=?", (pid,))
+    return cur.rowcount > 0
+
+
+def add_to_plan(conn, plan_id, slug):
+    max_pos = conn.execute(
+        "SELECT MAX(position) as m FROM study_plan_lessons WHERE plan_id=?", (plan_id,)
+    ).fetchone()["m"] or 0
+    conn.execute(
+        "INSERT OR IGNORE INTO study_plan_lessons(plan_id,slug,position,done) VALUES(?,?,?,0)",
+        (plan_id, slug, max_pos + 1),
+    )
+
+
+def remove_from_plan(conn, plan_id, slug):
+    conn.execute("DELETE FROM study_plan_lessons WHERE plan_id=? AND slug=?", (plan_id, slug))
+
+
+def toggle_plan_lesson_done(conn, plan_id, slug, done):
+    conn.execute(
+        "UPDATE study_plan_lessons SET done=? WHERE plan_id=? AND slug=?", (int(done), plan_id, slug)
+    )
+
+
+# ── Flashcards ────────────────────────────────────────────────────────────────
+
+def get_flashcards(conn, tag=None, source_slug=None):
+    if source_slug:
+        rows = conn.execute(
+            "SELECT * FROM flashcards WHERE source_slug=? ORDER BY created_at DESC", (source_slug,)
+        ).fetchall()
+    elif tag:
+        rows = conn.execute(
+            "SELECT * FROM flashcards WHERE tag=? ORDER BY created_at DESC", (tag,)
+        ).fetchall()
+    else:
+        rows = conn.execute("SELECT * FROM flashcards ORDER BY created_at DESC").fetchall()
+    return [dict(r) for r in rows]
+
+
+def add_flashcard(conn, card):
+    conn.execute(
+        "INSERT INTO flashcards(id,source_slug,front,back,tag,created_at) VALUES(?,?,?,?,?,?)",
+        (card["id"], card.get("source_slug", ""), card["front"], card["back"], card.get("tag", ""), card["created_at"]),
+    )
+
+
+def delete_flashcard(conn, fid):
+    cur = conn.execute("DELETE FROM flashcards WHERE id=?", (fid,))
+    return cur.rowcount > 0
+
+
+# ── Lesson Visits ─────────────────────────────────────────────────────────────
+
+def record_lesson_visit(conn, slug, content):
+    import hashlib
+    h = hashlib.md5(content.encode()).hexdigest()[:12]
+    from datetime import datetime as _dt
+    conn.execute(
+        """INSERT INTO lesson_visits(slug,last_visited,content_hash) VALUES(?,?,?)
+           ON CONFLICT(slug) DO UPDATE SET last_visited=excluded.last_visited, content_hash=excluded.content_hash""",
+        (slug, _dt.now().strftime("%Y-%m-%dT%H:%M:%S"), h),
+    )
+    return h
+
+
+def get_lesson_visit(conn, slug):
+    row = conn.execute("SELECT * FROM lesson_visits WHERE slug=?", (slug,)).fetchone()
+    return dict(row) if row else None

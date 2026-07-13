@@ -9,7 +9,7 @@ function elapsed(startTime) {
   return `${m}m ${s}s`
 }
 
-export default function Sidebar({ lesson, sections, sectionIdx, visited, mqScores, sectionLabel, goTo, quizScore, startTime }) {
+export default function Sidebar({ lesson, sections, sectionIdx, visited, mqScores, sectionLabel, goTo, quizScore, startTime, sectionProgress, onSectionCheck }) {
   const meta = lesson.meta || {}
   const [tick, setTick] = useState(0)
   useEffect(() => {
@@ -56,11 +56,33 @@ export default function Sidebar({ lesson, sections, sectionIdx, visited, mqScore
           const label = sectionLabel(section, lesson)
           const dc = dotClass(section, i)
           const isActive = i === sectionIdx
+          const isChecked = sectionProgress && label ? !!sectionProgress[label]?.checked : false
           return (
-            <button key={section} className={`toc-item${isActive ? ' active' : ''}`} onClick={() => goTo(i)}>
-              <span className={`toc-dot${dc ? ' ' + dc : ''}`} />
-              {label}
-            </button>
+            <div key={section} style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+              <button className={`toc-item${isActive ? ' active' : ''}`} onClick={() => goTo(i)} style={{ flex: 1 }}>
+                <span className={`toc-dot${dc ? ' ' + dc : ''}`} />
+                {label}
+              </button>
+              {onSectionCheck && visited.has(i) && label && (
+                <button
+                  title={isChecked ? 'Uncheck section' : 'Check off section'}
+                  onClick={e => { e.stopPropagation(); onSectionCheck(label, !isChecked) }}
+                  style={{
+                    flexShrink: 0,
+                    background: 'none',
+                    border: 'none',
+                    cursor: 'pointer',
+                    padding: '0 4px',
+                    fontSize: '0.85rem',
+                    color: isChecked ? 'var(--success)' : 'var(--border)',
+                    lineHeight: 1,
+                    transition: 'color 0.12s',
+                  }}
+                >
+                  {isChecked ? '✓' : '○'}
+                </button>
+              )}
+            </div>
           )
         })}
       </nav>

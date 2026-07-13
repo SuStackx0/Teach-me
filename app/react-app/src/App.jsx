@@ -10,6 +10,13 @@ import SearchPage from './components/SearchPage.jsx'
 import BookmarksPage from './components/BookmarksPage.jsx'
 import TimelinePage from './components/TimelinePage.jsx'
 import TILPage from './components/TILPage.jsx'
+import HighlightsPage from './components/HighlightsPage.jsx'
+import GlossaryPage from './components/GlossaryPage.jsx'
+import SnippetsPage from './components/SnippetsPage.jsx'
+import ReviewPage from './components/ReviewPage.jsx'
+import CollectionsPage from './components/CollectionsPage.jsx'
+import PlannerPage from './components/PlannerPage.jsx'
+import FlashcardsPage from './components/FlashcardsPage.jsx'
 import './styles/globals.css'
 
 export default function App() {
@@ -27,6 +34,13 @@ export default function App() {
         <Route path="/bookmarks" element={<BookmarksPage />} />
         <Route path="/timeline" element={<TimelinePage />} />
         <Route path="/til" element={<TILPage />} />
+        <Route path="/highlights" element={<HighlightsPage />} />
+        <Route path="/glossary" element={<GlossaryPage />} />
+        <Route path="/snippets" element={<SnippetsPage />} />
+        <Route path="/review" element={<ReviewPage />} />
+        <Route path="/collections" element={<CollectionsPage />} />
+        <Route path="/planner" element={<PlannerPage />} />
+        <Route path="/flashcards" element={<FlashcardsPage />} />
       </Routes>
     </BrowserRouter>
   )

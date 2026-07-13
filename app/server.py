@@ -7,9 +7,11 @@ import time
 from datetime import datetime, timedelta
 from pathlib import Path
 
+from collections import Counter
+
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
@@ -210,6 +212,9 @@ def get_stats():
         elif due_date <= today + timedelta(days=7):
             next_7.append(item)
 
+    date_counts = Counter(e.get("date", "") for e in completed if e.get("date"))
+    heatmap = [{"date": d, "count": c} for d, c in sorted(date_counts.items())]
+
     return {
         "tracks": tracks_out,
         "score_trend": score_trend,
@@ -220,6 +225,7 @@ def get_stats():
         },
         "streak": streak,
         "requiz_queue": memory["requiz_queue"],
+        "heatmap": heatmap,
     }
 
 
@@ -556,6 +562,521 @@ def get_til():
 @app.post("/api/chat")
 def chat_placeholder():
     raise HTTPException(status_code=501, detail="Chat not implemented yet")
+
+
+# ── Highlights ────────────────────────────────────────────────────────────────
+
+class HighlightPayload(BaseModel):
+    slug: str
+    section: str
+    text: str
+    color: str = "yellow"
+
+
+@app.get("/api/highlights")
+def get_highlights(slug: str = ""):
+    return {"highlights": DB.get_highlights(_CONN, slug or None)}
+
+
+@app.post("/api/highlights")
+def add_highlight(payload: HighlightPayload):
+    h = {"id": f"h{int(time.time()*1000)}", "slug": payload.slug, "section": payload.section,
+         "text": payload.text, "color": payload.color,
+         "created_at": datetime.now().strftime("%Y-%m-%dT%H:%M:%S")}
+    DB.add_highlight(_CONN, h)
+    _CONN.commit()
+    return {"ok": True, "id": h["id"]}
+
+
+@app.delete("/api/highlights/{hid}")
+def delete_highlight(hid: str):
+    if not DB.delete_highlight(_CONN, hid):
+        raise HTTPException(status_code=404, detail="Highlight not found")
+    _CONN.commit()
+    return {"ok": True}
+
+
+# ── Inline Comments ───────────────────────────────────────────────────────────
+
+class InlineCommentPayload(BaseModel):
+    slug: str
+    section: str
+    comment: str
+
+
+class InlineCommentUpdatePayload(BaseModel):
+    comment: str
+
+
+@app.get("/api/comments/{slug}")
+def get_comments(slug: str):
+    return {"comments": DB.get_inline_comments(_CONN, slug)}
+
+
+@app.post("/api/comments")
+def add_comment(payload: InlineCommentPayload):
+    c = {"id": f"c{int(time.time()*1000)}", "slug": payload.slug, "section": payload.section,
+         "comment": payload.comment, "created_at": datetime.now().strftime("%Y-%m-%dT%H:%M:%S")}
+    DB.add_inline_comment(_CONN, c)
+    _CONN.commit()
+    return {"ok": True, "id": c["id"]}
+
+
+@app.delete("/api/comments/{cid}")
+def delete_comment(cid: str):
+    if not DB.delete_inline_comment(_CONN, cid):
+        raise HTTPException(status_code=404, detail="Comment not found")
+    _CONN.commit()
+    return {"ok": True}
+
+
+@app.put("/api/comments/{cid}")
+def update_comment(cid: str, payload: InlineCommentUpdatePayload):
+    DB.update_inline_comment(_CONN, cid, payload.comment)
+    _CONN.commit()
+    return {"ok": True}
+
+
+# ── Glossary ──────────────────────────────────────────────────────────────────
+
+class GlossaryPayload(BaseModel):
+    term: str
+    definition: str
+    source_slug: str = ""
+
+
+class GlossaryUpdatePayload(BaseModel):
+    term: str
+    definition: str
+
+
+@app.get("/api/glossary")
+def get_glossary():
+    return {"entries": DB.get_glossary(_CONN)}
+
+
+@app.post("/api/glossary")
+def add_glossary(payload: GlossaryPayload):
+    entry = {"id": f"g{int(time.time()*1000)}", "term": payload.term.strip(),
+             "definition": payload.definition.strip(), "source_slug": payload.source_slug,
+             "created_at": datetime.now().strftime("%Y-%m-%dT%H:%M:%S")}
+    DB.add_glossary_entry(_CONN, entry)
+    _CONN.commit()
+    return {"ok": True, "id": entry["id"]}
+
+
+@app.delete("/api/glossary/{eid}")
+def delete_glossary(eid: str):
+    if not DB.delete_glossary_entry(_CONN, eid):
+        raise HTTPException(status_code=404, detail="Entry not found")
+    _CONN.commit()
+    return {"ok": True}
+
+
+@app.put("/api/glossary/{eid}")
+def update_glossary(eid: str, payload: GlossaryUpdatePayload):
+    DB.update_glossary_entry(_CONN, eid, payload.term, payload.definition)
+    _CONN.commit()
+    return {"ok": True}
+
+
+# ── Snippets ──────────────────────────────────────────────────────────────────
+
+class SnippetPayload(BaseModel):
+    slug: str
+    title: str
+    code: str
+    language: str = ""
+    tag: str = ""
+
+
+@app.get("/api/snippets")
+def get_snippets(tag: str = ""):
+    return {"snippets": DB.get_snippets(_CONN, tag or None)}
+
+
+@app.post("/api/snippets")
+def add_snippet(payload: SnippetPayload):
+    s = {"id": f"s{int(time.time()*1000)}", "slug": payload.slug, "title": payload.title,
+         "code": payload.code, "language": payload.language, "tag": payload.tag,
+         "created_at": datetime.now().strftime("%Y-%m-%dT%H:%M:%S")}
+    DB.add_snippet(_CONN, s)
+    _CONN.commit()
+    return {"ok": True, "id": s["id"]}
+
+
+@app.delete("/api/snippets/{sid}")
+def delete_snippet(sid: str):
+    if not DB.delete_snippet(_CONN, sid):
+        raise HTTPException(status_code=404, detail="Snippet not found")
+    _CONN.commit()
+    return {"ok": True}
+
+
+# ── Self-rating ────────────────────────────────────────────────────────────────
+
+class SelfRatingPayload(BaseModel):
+    rating: int
+
+
+@app.post("/api/rating/{slug}")
+def set_rating(slug: str, payload: SelfRatingPayload):
+    if not 1 <= payload.rating <= 5:
+        raise HTTPException(status_code=400, detail="Rating must be 1-5")
+    DB.set_self_rating(_CONN, slug, payload.rating)
+    _CONN.commit()
+    return {"ok": True}
+
+
+@app.get("/api/rating/{slug}")
+def get_rating(slug: str):
+    return {"slug": slug, "rating": DB.get_self_rating(_CONN, slug)}
+
+
+# ── Section Progress ───────────────────────────────────────────────────────────
+
+class SectionVisitPayload(BaseModel):
+    section: str
+
+
+class SectionCheckPayload(BaseModel):
+    section: str
+    checked: bool
+
+
+@app.get("/api/progress/{slug}")
+def get_progress(slug: str):
+    return {"slug": slug, "progress": DB.get_section_progress(_CONN, slug)}
+
+
+@app.post("/api/progress/{slug}/visit")
+def mark_visited(slug: str, payload: SectionVisitPayload):
+    now = datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
+    DB.set_section_visited(_CONN, slug, payload.section, now)
+    _CONN.commit()
+    return {"ok": True}
+
+
+@app.post("/api/progress/{slug}/check")
+def mark_checked(slug: str, payload: SectionCheckPayload):
+    DB.set_section_checked(_CONN, slug, payload.section, payload.checked)
+    _CONN.commit()
+    return {"ok": True}
+
+
+# ── Review Queue ───────────────────────────────────────────────────────────────
+
+@app.get("/api/review-queue")
+def get_review_queue():
+    memory = DB.get_memory(_CONN)
+    completed = memory.get("completed", [])
+    today = datetime.now().date()
+    overdue, due_soon, upcoming = [], [], []
+    for r in sorted(completed, key=lambda x: x.get("next_review_date") or ""):
+        due_str = r.get("next_review_date")
+        if not due_str:
+            continue
+        try:
+            due = datetime.strptime(due_str, "%Y-%m-%d").date()
+        except Exception:
+            continue
+        item = {
+            "slug": r.get("slug", ""), "title": r.get("title", ""),
+            "domain": r.get("domain", ""), "date": r.get("date", ""),
+            "quiz_score_pct": r.get("quiz_score_pct"),
+            "next_review_date": due_str,
+            "self_rating": DB.get_self_rating(_CONN, r.get("slug", "")),
+            "days_until": (due - today).days,
+        }
+        diff = item["days_until"]
+        if diff < 0:
+            overdue.append(item)
+        elif diff <= 7:
+            due_soon.append(item)
+        else:
+            upcoming.append(item)
+    return {"overdue": overdue, "due_soon": due_soon, "upcoming": upcoming[:20]}
+
+
+# ── Tags ──────────────────────────────────────────────────────────────────────
+
+class LessonTagPayload(BaseModel):
+    tag_name: str
+
+
+@app.get("/api/tags")
+def get_tags():
+    return {"tags": DB.get_all_tags(_CONN)}
+
+
+@app.get("/api/tags/{slug}")
+def get_lesson_tags(slug: str):
+    return {"slug": slug, "tags": DB.get_tags_for_lesson(_CONN, slug)}
+
+
+@app.post("/api/tags/{slug}")
+def add_lesson_tag(slug: str, payload: LessonTagPayload):
+    name = payload.tag_name.strip().lower()
+    if not name:
+        raise HTTPException(status_code=400, detail="Tag name required")
+    tag_id = f"t{abs(hash(name)) % 10**9}"
+    DB.add_tag(_CONN, tag_id, name)
+    DB.tag_lesson(_CONN, slug, tag_id)
+    _CONN.commit()
+    return {"ok": True}
+
+
+@app.delete("/api/tags/{slug}/{tag_name}")
+def remove_lesson_tag(slug: str, tag_name: str):
+    row = _CONN.execute("SELECT id FROM tags WHERE name=?", (tag_name,)).fetchone()
+    if row:
+        DB.untag_lesson(_CONN, slug, row["id"])
+        _CONN.commit()
+    return {"ok": True}
+
+
+# ── Collections ───────────────────────────────────────────────────────────────
+
+class CollectionPayload(BaseModel):
+    name: str
+    description: str = ""
+
+
+class CollectionLessonPayload(BaseModel):
+    slug: str
+
+
+@app.get("/api/collections")
+def get_collections():
+    return {"collections": DB.get_collections(_CONN)}
+
+
+@app.post("/api/collections")
+def create_collection(payload: CollectionPayload):
+    col = {"id": f"col{int(time.time()*1000)}", "name": payload.name.strip(),
+           "description": payload.description,
+           "created_at": datetime.now().strftime("%Y-%m-%dT%H:%M:%S")}
+    DB.create_collection(_CONN, col)
+    _CONN.commit()
+    return {"ok": True, "id": col["id"]}
+
+
+@app.delete("/api/collections/{cid}")
+def delete_collection(cid: str):
+    if not DB.delete_collection(_CONN, cid):
+        raise HTTPException(status_code=404, detail="Collection not found")
+    _CONN.commit()
+    return {"ok": True}
+
+
+@app.post("/api/collections/{cid}/lessons")
+def add_to_collection(cid: str, payload: CollectionLessonPayload):
+    DB.add_to_collection(_CONN, cid, payload.slug)
+    _CONN.commit()
+    return {"ok": True}
+
+
+@app.delete("/api/collections/{cid}/lessons/{slug}")
+def remove_from_collection(cid: str, slug: str):
+    DB.remove_from_collection(_CONN, cid, slug)
+    _CONN.commit()
+    return {"ok": True}
+
+
+# ── Pins ──────────────────────────────────────────────────────────────────────
+
+@app.get("/api/pins")
+def get_pins():
+    return {"pins": DB.get_pinned(_CONN)}
+
+
+@app.post("/api/pins/{slug}")
+def pin_lesson(slug: str):
+    if not DB.pin_lesson(_CONN, slug):
+        raise HTTPException(status_code=400, detail="Max 3 lessons can be pinned")
+    _CONN.commit()
+    return {"ok": True}
+
+
+@app.delete("/api/pins/{slug}")
+def unpin_lesson(slug: str):
+    DB.unpin_lesson(_CONN, slug)
+    _CONN.commit()
+    return {"ok": True}
+
+
+# ── Connections ───────────────────────────────────────────────────────────────
+
+class ConnectionPayload(BaseModel):
+    from_slug: str
+    to_slug: str
+    label: str = ""
+
+
+@app.get("/api/connections/{slug}")
+def get_connections(slug: str):
+    return {"connections": DB.get_connections(_CONN, slug)}
+
+
+@app.post("/api/connections")
+def add_connection(payload: ConnectionPayload):
+    conn_obj = {"id": f"conn{int(time.time()*1000)}", "from_slug": payload.from_slug,
+                "to_slug": payload.to_slug, "label": payload.label,
+                "created_at": datetime.now().strftime("%Y-%m-%dT%H:%M:%S")}
+    DB.add_connection(_CONN, conn_obj)
+    _CONN.commit()
+    return {"ok": True, "id": conn_obj["id"]}
+
+
+@app.delete("/api/connections/{cid}")
+def delete_connection(cid: str):
+    if not DB.delete_connection(_CONN, cid):
+        raise HTTPException(status_code=404, detail="Connection not found")
+    _CONN.commit()
+    return {"ok": True}
+
+
+# ── Study Planner ─────────────────────────────────────────────────────────────
+
+class StudyPlanPayload(BaseModel):
+    name: str
+    description: str = ""
+    target_date: str = ""
+
+
+class PlanLessonPayload(BaseModel):
+    slug: str
+
+
+class PlanLessonDonePayload(BaseModel):
+    done: bool
+
+
+@app.get("/api/plans")
+def get_plans():
+    return {"plans": DB.get_study_plans(_CONN)}
+
+
+@app.post("/api/plans")
+def create_plan(payload: StudyPlanPayload):
+    plan = {"id": f"plan{int(time.time()*1000)}", "name": payload.name.strip(),
+            "description": payload.description, "target_date": payload.target_date or None,
+            "created_at": datetime.now().strftime("%Y-%m-%dT%H:%M:%S")}
+    DB.create_study_plan(_CONN, plan)
+    _CONN.commit()
+    return {"ok": True, "id": plan["id"]}
+
+
+@app.delete("/api/plans/{pid}")
+def delete_plan(pid: str):
+    if not DB.delete_study_plan(_CONN, pid):
+        raise HTTPException(status_code=404, detail="Plan not found")
+    _CONN.commit()
+    return {"ok": True}
+
+
+@app.post("/api/plans/{pid}/lessons")
+def add_plan_lesson(pid: str, payload: PlanLessonPayload):
+    DB.add_to_plan(_CONN, pid, payload.slug)
+    _CONN.commit()
+    return {"ok": True}
+
+
+@app.delete("/api/plans/{pid}/lessons/{slug}")
+def remove_plan_lesson(pid: str, slug: str):
+    DB.remove_from_plan(_CONN, pid, slug)
+    _CONN.commit()
+    return {"ok": True}
+
+
+@app.post("/api/plans/{pid}/lessons/{slug}/done")
+def toggle_done(pid: str, slug: str, payload: PlanLessonDonePayload):
+    DB.toggle_plan_lesson_done(_CONN, pid, slug, payload.done)
+    _CONN.commit()
+    return {"ok": True}
+
+
+# ── Flashcards ────────────────────────────────────────────────────────────────
+
+class FlashcardPayload(BaseModel):
+    source_slug: str = ""
+    front: str
+    back: str
+    tag: str = ""
+
+
+@app.get("/api/flashcards")
+def get_flashcards(tag: str = "", source_slug: str = ""):
+    return {"cards": DB.get_flashcards(_CONN, tag or None, source_slug or None)}
+
+
+@app.post("/api/flashcards")
+def add_flashcard(payload: FlashcardPayload):
+    card = {"id": f"fc{int(time.time()*1000)}", "source_slug": payload.source_slug,
+            "front": payload.front.strip(), "back": payload.back.strip(), "tag": payload.tag,
+            "created_at": datetime.now().strftime("%Y-%m-%dT%H:%M:%S")}
+    DB.add_flashcard(_CONN, card)
+    _CONN.commit()
+    return {"ok": True, "id": card["id"]}
+
+
+@app.delete("/api/flashcards/{fid}")
+def delete_flashcard(fid: str):
+    if not DB.delete_flashcard(_CONN, fid):
+        raise HTTPException(status_code=404, detail="Card not found")
+    _CONN.commit()
+    return {"ok": True}
+
+
+# ── Lesson Visits ─────────────────────────────────────────────────────────────
+
+@app.post("/api/visits/{slug}")
+def record_visit(slug: str):
+    lesson = DB.get_lesson_by_slug(_CONN, slug) or DB.get_current_lesson(_CONN)
+    if not lesson:
+        raise HTTPException(status_code=404, detail="Lesson not found")
+    h = DB.record_lesson_visit(_CONN, slug, json.dumps(lesson, sort_keys=True))
+    _CONN.commit()
+    return {"ok": True, "hash": h}
+
+
+@app.get("/api/visits/{slug}")
+def get_visit(slug: str):
+    v = DB.get_lesson_visit(_CONN, slug)
+    if not v:
+        return {"visited": False}
+    return {"visited": True, **v}
+
+
+# ── Export ────────────────────────────────────────────────────────────────────
+
+@app.get("/api/export/{slug}")
+def export_lesson(slug: str, fmt: str = "md"):
+    lesson = DB.get_lesson_by_slug(_CONN, slug) or DB.get_current_lesson(_CONN)
+    if not lesson:
+        raise HTTPException(status_code=404, detail="Lesson not found")
+    meta = lesson.get("meta", {}) if isinstance(lesson.get("meta"), dict) else {}
+    title = meta.get("title", slug)
+    note = DB.get_note(_CONN, slug)
+    lines = [f"# {title}", ""]
+    hook = lesson.get("hook", {})
+    if isinstance(hook, dict) and hook.get("problem"):
+        lines += ["## Hook", hook["problem"], ""]
+    for c in lesson.get("core_concepts", []):
+        if isinstance(c, dict):
+            lines += [f"## {c.get('title', 'Concept')}", c.get("explanation", ""), ""]
+    insights = lesson.get("key_insights", [])
+    if insights:
+        lines += ["## Key Insights"]
+        for ins in insights:
+            lines.append(f"- {ins}")
+        lines.append("")
+    if note:
+        lines += ["## My Notes", note, ""]
+    content = "\n".join(lines)
+    filename = f"{slug}.md" if fmt == "md" else f"{slug}.txt"
+    return PlainTextResponse(content=content,
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'})
 
 
 # Serve React build

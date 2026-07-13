@@ -24,6 +24,7 @@ export default function TodayView() {
   )
   const [bookmarkFlash, setBookmarkFlash] = useState(false)
   const [completing, setCompleting] = useState(false)
+  const [sectionProgress, setSectionProgress] = useState({})
   const mainRef = useRef(null)
 
   const {
@@ -41,6 +42,44 @@ export default function TodayView() {
     if (!lesson || !sections[sectionIdx]) return ''
     return sectionLabel(sections[sectionIdx], lesson)
   }, [lesson, sections, sectionIdx])
+
+  // Load section progress once lesson is available
+  useEffect(() => {
+    if (!lesson?.meta?.slug) return
+    fetch(`/api/progress/${lesson.meta.slug}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (d) setSectionProgress(d.progress || {}) })
+      .catch(() => {})
+  }, [lesson?.meta?.slug])
+
+  // Mark current section as visited whenever it changes
+  useEffect(() => {
+    if (!lesson?.meta?.slug || !sections[sectionIdx]) return
+    const section = sectionLabel(sections[sectionIdx], lesson)
+    if (!section) return
+    fetch(`/api/progress/${lesson.meta.slug}/visit`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ section }),
+    }).catch(() => {})
+    setSectionProgress(prev => ({
+      ...prev,
+      [section]: { ...prev[section], visited_at: new Date().toISOString() },
+    }))
+  }, [lesson?.meta?.slug, sectionIdx]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleSectionCheck = useCallback((section, checked) => {
+    if (!lesson?.meta?.slug) return
+    fetch(`/api/progress/${lesson.meta.slug}/check`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ section, checked }),
+    }).catch(() => {})
+    setSectionProgress(prev => ({
+      ...prev,
+      [section]: { ...prev[section], checked },
+    }))
+  }, [lesson?.meta?.slug])
 
   const { chipPos, lastSelectedText } = useClipAction({
     mainRef,
@@ -96,6 +135,11 @@ export default function TodayView() {
   const pct = Math.round((sectionIdx / Math.max(sections.length - 1, 1)) * 100)
   const current = sections[sectionIdx]
 
+  // Section checklist summary
+  const sectionLabels = sections.map(s => sectionLabel(s, lesson)).filter(Boolean)
+  const checkedCount = sectionLabels.filter(s => sectionProgress[s]?.checked).length
+  const visitedCount = sectionLabels.filter(s => sectionProgress[s]?.visited_at).length
+
   const sharedProps = { lesson, goNext, goPrev, canGoPrev, canGoNext }
 
   const renderSection = () => {
@@ -126,6 +170,23 @@ export default function TodayView() {
       )}
       <div className="progress-bar-slot">
         <ProgressBar pct={pct} />
+        {!focusMode && sectionLabels.length > 0 && (
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.5rem',
+            padding: '0 1rem',
+            marginTop: '0.25rem',
+            fontSize: '0.72rem',
+            color: 'var(--text-muted)',
+            fontFamily: 'IBM Plex Mono, monospace',
+          }}>
+            <span>{visitedCount}/{sectionLabels.length} visited</span>
+            {checkedCount > 0 && (
+              <span style={{ color: 'var(--success)' }}>· {checkedCount} checked off</span>
+            )}
+          </div>
+        )}
       </div>
       <div className="sidebar">
         <Sidebar
@@ -138,6 +199,8 @@ export default function TodayView() {
           goTo={goTo}
           quizScore={quizScore}
           startTime={startTime}
+          sectionProgress={sectionProgress}
+          onSectionCheck={handleSectionCheck}
         />
       </div>
       <main ref={mainRef} className="main-content section-fade" key={sectionIdx}>

@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import WishlistPanel from './WishlistPanel.jsx'
 
 export default function TopNav() {
@@ -8,6 +8,8 @@ export default function TopNav() {
   const [dark, setDark] = useState(() => localStorage.getItem('theme') === 'dark')
   const [wishlistOpen, setWishlistOpen] = useState(false)
   const [wishlistCount, setWishlistCount] = useState(0)
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const menuRef = useRef(null)
 
   useEffect(() => {
     fetch('/api/memory')
@@ -36,23 +38,55 @@ export default function TopNav() {
     }
   }, [dark])
 
+  useEffect(() => {
+    if (!mobileMenuOpen) return
+    const handle = (e) => {
+      if (menuRef.current && !menuRef.current.contains(e.target)) setMobileMenuOpen(false)
+    }
+    document.addEventListener('mousedown', handle)
+    return () => document.removeEventListener('mousedown', handle)
+  }, [mobileMenuOpen])
+
+  const navLinks = [
+    { to: '/', label: 'Today', end: true },
+    { to: '/library', label: 'Library' },
+    { to: '/stats', label: 'Stats' },
+    { to: '/notes', label: notesCount > 0 ? <>Notes <span className="notes-nav-badge">{notesCount}</span></> : 'Notes' },
+    { to: '/map', label: 'Map' },
+    { to: '/timeline', label: 'Timeline' },
+    { to: '/search', label: 'Search' },
+    { to: '/bookmarks', label: 'Bookmarks' },
+    { to: '/til', label: 'TIL' },
+    { to: '/highlights', label: 'Highlights' },
+    { to: '/glossary', label: 'Glossary' },
+    { to: '/snippets', label: 'Snippets' },
+    { to: '/review', label: 'Review' },
+    { to: '/collections', label: 'Collections' },
+    { to: '/planner', label: 'Planner' },
+    { to: '/flashcards', label: 'Flashcards' },
+  ]
+
   return (
-    <nav className="topnav">
+    <nav className="topnav" ref={menuRef}>
       <span className="topnav-logo">teach-me</span>
 
+      {/* Desktop nav links */}
       <div className="topnav-links">
-        <NavLink to="/" end className={({ isActive }) => 'topnav-link' + (isActive ? ' active' : '')}>Today</NavLink>
-        <NavLink to="/library" className={({ isActive }) => 'topnav-link' + (isActive ? ' active' : '')}>Library</NavLink>
-        <NavLink to="/stats" className={({ isActive }) => 'topnav-link' + (isActive ? ' active' : '')}>Stats</NavLink>
-        <NavLink to="/notes" className={({ isActive }) => 'topnav-link' + (isActive ? ' active' : '')}>
-          Notes
-          {notesCount > 0 && <span className="notes-nav-badge">{notesCount}</span>}
-        </NavLink>
-        <NavLink to="/map" className={({ isActive }) => 'topnav-link' + (isActive ? ' active' : '')}>Map</NavLink>
-        <NavLink to="/timeline" className={({ isActive }) => 'topnav-link' + (isActive ? ' active' : '')}>Timeline</NavLink>
-        <NavLink to="/search" className={({ isActive }) => 'topnav-link' + (isActive ? ' active' : '')}>Search</NavLink>
-        <NavLink to="/bookmarks" className={({ isActive }) => 'topnav-link' + (isActive ? ' active' : '')}>Bookmarks</NavLink>
-        <NavLink to="/til" className={({ isActive }) => 'topnav-link' + (isActive ? ' active' : '')}>TIL</NavLink>
+        {navLinks.map(({ to, label, end }) => (
+          <NavLink key={to} to={to} end={end} className={({ isActive }) => 'topnav-link' + (isActive ? ' active' : '')}>{label}</NavLink>
+        ))}
+      </div>
+
+      {/* Mobile hamburger */}
+      <button className="topnav-hamburger" onClick={() => setMobileMenuOpen(o => !o)} title="Menu">
+        {mobileMenuOpen ? '✕' : '☰'}
+      </button>
+
+      {/* Mobile dropdown */}
+      <div className={`topnav-mobile-menu${mobileMenuOpen ? ' open' : ''}`}>
+        {navLinks.map(({ to, label, end }) => (
+          <NavLink key={to} to={to} end={end} className={({ isActive }) => 'topnav-link' + (isActive ? ' active' : '')} onClick={() => setMobileMenuOpen(false)}>{label}</NavLink>
+        ))}
       </div>
 
       <div className="topnav-spacer" />

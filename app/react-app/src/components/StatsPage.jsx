@@ -171,13 +171,25 @@ function StudyTimeStats({ completed }) {
   )
 }
 
-function StudyGrid({ completed }) {
+function StudyGrid({ completed, heatmap }) {
   const CELL = 11, GAP = 2, STEP = CELL + GAP
   const cols = 53, rows = 7
   const W = cols * STEP, H = rows * STEP
   const LABEL_H = 18
 
-  const studiedDates = new Set((completed || []).map(e => e.date).filter(Boolean))
+  // Build count map from API heatmap (preferred) or fall back to binary from memory
+  const dateCountMap = {}
+  if (heatmap && heatmap.length > 0) {
+    for (const { date, count } of heatmap) {
+      dateCountMap[date] = count
+    }
+  } else {
+    for (const e of (completed || [])) {
+      if (e.date) dateCountMap[e.date] = (dateCountMap[e.date] || 0) + 1
+    }
+  }
+
+  const studiedDates = new Set(Object.keys(dateCountMap))
 
   const today = new Date()
   today.setHours(0, 0, 0, 0)
@@ -194,7 +206,8 @@ function StudyGrid({ completed }) {
     const col = Math.floor(d / 7)
     const row = d % 7
     const dateStr = date.toISOString().slice(0, 10)
-    cells.push({ col, row, dateStr, studied: studiedDates.has(dateStr), date })
+    const count = dateCountMap[dateStr] || 0
+    cells.push({ col, row, dateStr, studied: studiedDates.has(dateStr), count, date })
   }
 
   // Month labels: find first week col for each month
@@ -242,17 +255,21 @@ function StudyGrid({ completed }) {
             width={CELL}
             height={CELL}
             rx={2}
-            fill={studied ? 'var(--accent)' : 'var(--surface-2)'}
+            fill={count >= 2 ? 'var(--accent)' : count === 1 ? 'var(--accent-dim)' : 'var(--surface-2)'}
             opacity={studied ? 1 : 0.5}
           >
-            <title>{dateStr}{studied ? ' — studied' : ''}</title>
+            <title>{dateStr}{count > 0 ? ` — ${count} session${count > 1 ? 's' : ''}` : ''}</title>
           </rect>
         ))}
       </svg>
       <div style={{ display: 'flex', gap: '1rem', marginTop: '0.5rem', fontSize: '0.75rem', color: 'var(--text-muted)', alignItems: 'center' }}>
         <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
           <svg width={11} height={11}><rect width={11} height={11} rx={2} fill="var(--accent)" /></svg>
-          Studied
+          2+ sessions
+        </span>
+        <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+          <svg width={11} height={11}><rect width={11} height={11} rx={2} fill="var(--accent-dim)" /></svg>
+          1 session
         </span>
         <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
           <svg width={11} height={11}><rect width={11} height={11} rx={2} fill="var(--surface-2)" opacity={0.5} /></svg>
@@ -416,6 +433,7 @@ export default function StatsPage() {
     review_debt = { overdue: [], next_7_days: [] },
     streak = 0,
     requiz_queue = [],
+    heatmap = [],
   } = data || {}
 
   const activeWeakAreas = weak_areas.filter(w => !w.retired)
@@ -489,7 +507,7 @@ export default function StatsPage() {
 
       <section className="stats-section">
         <h3>Study Activity</h3>
-        <StudyGrid completed={memory?.completed} />
+        <StudyGrid completed={memory?.completed} heatmap={heatmap} />
       </section>
 
       <section className="stats-section">
