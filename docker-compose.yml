@@ -5,7 +5,9 @@ services:
       - "8001:8001"
     volumes:
       - ./.teach:/app/.teach
+      - ./teach.db:/app/teach.db
     environment:
       - TEACH_DATA_DIR=/app/.teach
+      - TEACH_DB_PATH=/app/teach.db
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
     restart: unless-stopped

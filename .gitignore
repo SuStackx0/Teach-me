@@ -1,8 +1,25 @@
-resume/
+# SQLite DB (lives on host, mounted into Docker)
+teach.db
+teach.db-wal
+teach.db-shm
+
+# Legacy JSON files migrated to SQLite — no longer source-controlled
+.teach/memory.json
+.teach/notes.json
+.teach/wishlist.json
+.teach/bookmarks.json
+.teach/lesson_queue.json
+.teach/queue_lesson_*.json
 .teach/current_lesson.json
 .teach/next_lesson.json
+.teach/curriculum-v2.json
+.teach/question_bank.json
 .teach/archive/
+.teach/scenarios/
+.teach/summaries/
 .teach/session_state.json
+
+resume/
 __pycache__/
 *.pyc
 .env
@@ -15,3 +32,5 @@ build/
 venv/
 .streamlit/
 node_modules/
+.superpowers
+teach/
