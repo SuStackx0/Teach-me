@@ -13,12 +13,49 @@ Read from `memory.json` at runtime — do not hardcode here. The `learner` field
 
 ---
 
+## Queue Slot Detection
+
+**Run this before Step 1 every time.**
+
+Parse the invocation args. If the last whitespace-separated token is a digit ≥ 2, treat it as the queue slot number and strip it from the topic text.
+
+Examples:
+- `/teach postgre 2` → topic = "postgre", `queue_slot = 2`
+- `/teach trino query engine 3` → topic = "trino query engine", `queue_slot = 3`
+- `/teach trino` → topic = "trino", `queue_slot = 1` (normal flow)
+- `/teach` → no topic, `queue_slot = 1` (normal flow)
+
+**If `queue_slot >= 2`:**
+
+Skip Steps 1–4c entirely. Run only the lesson generation (Steps 4a–4d equivalent) with these differences:
+
+1. Use the topic as-is (custom topic path): title = topic text, slug = kebab-case, domain = "custom", difficulty = "advanced", estimated_minutes = 45, concepts = [].
+2. Output: `📖 Queuing Lesson [N]: [topic]. Generating...`
+3. Run Steps 4a–4d to generate the full lesson (skeleton → parallel concept agents → quiz+insights agent).
+4. Write the completed lesson JSON to the queue slot via: `echo '<json>' | python3 scripts/teach_cli.py set-queue-lesson <slot>`. Do **not** touch `current_lesson.json` or `in_progress`.
+5. After writing, build/update the lesson queue registry at `/Users/sumanthg/Documents/teach-me/.teach/lesson_queue.json`:
+   - Read `lesson_queue.json` if it exists; otherwise start fresh.
+   - If slot 1 entry is missing: read `current_lesson.json` (if exists) to get `meta.slug` and `meta.title` for slot 1; add it with `"status": "active"`.
+   - Upsert the new slot: `{"slot": N, "slug": "<slug>", "title": "<title>", "status": "ready"}`.
+   - Write back. Validate with `python3 -c "import json; json.load(open('/Users/sumanthg/Documents/teach-me/.teach/lesson_queue.json'))"`.
+6. Output:
+   ```
+   ✓ Lesson [N] queued: [title]
+     Open the browser and switch to tab [N] to read it.
+     Say "done [N]" when finished.
+   ```
+7. **STOP. Do not run Steps 5 or 8.**
+
+**If `queue_slot = 1`** (default): continue with normal Step 1 flow below. After Step 4c completes (current_lesson.json written), if `lesson_queue.json` already exists on disk, update its slot 1 entry to reflect the new lesson's slug/title/status.
+
+---
+
 ## Step 1 — Check Memory & Avoid Repetition
 
-Read `.teach/memory.json`:
+Read memory state via CLI:
 
 ```bash
-cat /Users/sumanthg/Documents/teach-me/.teach/memory.json
+python3 scripts/teach_cli.py get-memory
 ```
 
 Extract and display:
@@ -44,13 +81,11 @@ Run these checks every time, right after reading `memory.json`. Fix silently (no
 **(a) Stale in_progress vs current_lesson:**
 If `in_progress != null`: read `.teach/current_lesson.json` (if it exists) and compare `meta.slug` to `in_progress`.
 
-- If `current_lesson.json` does not exist, OR its `meta.slug` does not match `in_progress`: set `in_progress = null` in `memory.json` and write it back. Note internally: "state repaired". Do not alarm the user — just proceed with a clean state.
+- If `current_lesson.json` does not exist, OR its `meta.slug` does not match `in_progress`: clear in_progress by running `python3 scripts/teach_cli.py set-memory-key "in_progress" 'null'`. Note internally: "state repaired". Do not alarm the user — just proceed with a clean state.
 - If it matches, leave as-is (normal crash-recovery flow in Step 2a still applies).
 
 **(b) Completed-status drift vs curriculum-v2.json:**
-Read `/Users/sumanthg/Documents/teach-me/.teach/curriculum-v2.json`. For every slug in `memory.json`'s `completed[]`: find that slug in any track's `ladder[]` (or as a track's `capstone`). If found and its `status` is not `"completed"`, set `status: "completed"` there (add `completed_date`/`quiz_score_pct` from the memory entry if those fields are missing). Write `curriculum-v2.json` back if any change was made. Slugs not found in the graph (custom/wildcard topics) are not an error — skip them.
-
-Validate both files with `python3 -c "import json; json.load(open(...))"` after any write in this step.
+Run `python3 scripts/teach_cli.py get-curriculum` to read the curriculum. For every slug in the memory's `completed[]`: find that slug in any track's `ladder[]` (or as a track's `capstone`). If found and its `status` is not `"completed"`, run `python3 scripts/teach_cli.py update-topic-status <slug> "completed"` (using `completed_date`/`quiz_score_pct` from the memory entry where available). Slugs not found in the graph (custom/wildcard topics) are not an error — skip them.
 
 ---
 
@@ -82,7 +117,7 @@ If any are due:
 - Output: `📚 Review due: [slug title]. Spaced repetition session starting...`
 - Check if `.teach/archive/[slug].json` exists. If yes, load it to get quiz questions + core_concepts.
 - Generate 10 review questions (use the archived lesson's quiz + generate new ones from its `core_concepts` titles). Questions test recall — no explanations shown upfront, just question → user answers → reveal answer.
-- Write review session JSON to `.teach/current_lesson.json`:
+- Write review session JSON via: `echo '<json>' | python3 scripts/teach_cli.py set-current-lesson`
   ```json
   {
     "meta": {
@@ -95,7 +130,7 @@ If any are due:
     "_generation_status": "complete"
   }
   ```
-- Update `memory.json`: set `in_progress` to `"review-[slug]"`
+- Update in_progress: `python3 scripts/teach_cli.py set-memory-key "in_progress" '"review-[slug]"'`
 - Start server if not already running:
   ```bash
   lsof -i :8001 | grep LISTEN || (cd /Users/sumanthg/Documents/teach-me && docker compose up -d)
@@ -125,11 +160,23 @@ If any are due:
 
 **If no topic provided — score candidates from the curriculum graph:**
 
-Read `/Users/sumanthg/Documents/teach-me/.teach/curriculum-v2.json` and `/Users/sumanthg/Documents/teach-me/.teach/wishlist.json` (if it exists). Build the candidate pool and context:
+Fetch curriculum and wishlist via CLI/API, then build the candidate pool and context:
 
 ```python
-import json, datetime
-cur = json.load(open('/Users/sumanthg/Documents/teach-me/.teach/curriculum-v2.json'))
+import subprocess, json, datetime
+
+# Read curriculum via CLI
+cur = json.loads(subprocess.check_output(
+    ['python3', 'scripts/teach_cli.py', 'get-curriculum'],
+    cwd='/Users/sumanthg/Documents/teach-me'
+).decode())
+
+# Read memory via CLI
+memory = json.loads(subprocess.check_output(
+    ['python3', 'scripts/teach_cli.py', 'get-memory'],
+    cwd='/Users/sumanthg/Documents/teach-me'
+).decode())
+
 today = datetime.date.today().isoformat()
 
 done_slugs = {t['slug'] for tr in cur['tracks'] for t in tr['ladder'] if t['status'] == 'completed'}
@@ -163,15 +210,15 @@ weak_areas_list = ", ".join([
 ]) or "None"
 rotation_hint = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-# Read wishlist
-import pathlib, json as _json
-_wl_path = pathlib.Path('/Users/sumanthg/Documents/teach-me/.teach/wishlist.json')
-wishlist_items = []
-if _wl_path.exists():
-    try:
-        wishlist_items = [i for i in _json.loads(_wl_path.read_text()) if not i.get('surfaced')]
-    except Exception:
-        wishlist_items = []
+# Read wishlist via API
+import json as _json
+try:
+    _wl_raw = subprocess.check_output(
+        ['curl', '-s', 'http://localhost:8001/api/wishlist']
+    ).decode()
+    wishlist_items = [i for i in _json.loads(_wl_raw) if not i.get('surfaced')]
+except Exception:
+    wishlist_items = []
 wishlist_topics = [i['topic'] for i in wishlist_items]
 ```
 
@@ -254,7 +301,7 @@ When the user replies:
 
 Output: `🤖 Going with: [chosen title]`
 
-**Mark wishlist item as surfaced** (if the chosen topic matches one): Check if the chosen topic's title or slug fuzzy-matches any item in `wishlist_items`. If so, update that item's `surfaced: true` in `wishlist.json` and write it back.
+**Mark wishlist item as surfaced** (if the chosen topic matches one): Check if the chosen topic's title or slug fuzzy-matches any item in `wishlist_items`. If so, call `curl -s -X POST http://localhost:8001/api/wishlist/<id>/surface` (or the equivalent API endpoint) to mark it surfaced. If no API endpoint is available, skip silently — the wishlist write path is handled server-side.
 
 If the chosen option has `kind == "design_session"`: skip the fast-path check and Steps 3–4 entirely — go directly to **Step 4-DS**.
 
@@ -400,9 +447,9 @@ Parse each concept agent's JSON output. Each parsed concept object (including it
 }
 ```
 
-**warm_up**: ALWAYS build exactly 5 questions, drawn from `.teach/question_bank.json` (not generated fresh). This runs every session, regardless of whether weak areas exist.
+**warm_up**: ALWAYS build exactly 5 questions, drawn from the question bank (not generated fresh). This runs every session, regardless of whether weak areas exist.
 
-Read `/Users/sumanthg/Documents/teach-me/.teach/question_bank.json`. Its `questions[]` array has fields: `id, source_slug, source_title, domain, type, question, options, answer, explanation, times_asked, times_correct, last_asked`.
+Read the question bank via CLI: `python3 scripts/teach_cli.py get-questions`. Parse the returned `{"questions": [...]}` object. The `questions[]` array has fields: `id, source_slug, source_title, domain, type, question, options, answer, explanation, times_asked, times_correct, last_asked`.
 
 **Selection — pick 5 questions in this priority order, filling from each bucket before moving to the next, skipping already-picked questions:**
 
@@ -413,7 +460,7 @@ Read `/Users/sumanthg/Documents/teach-me/.teach/question_bank.json`. Its `questi
 
 **Diversity constraint:** no two selected questions may share the same `source_slug`, unless the bank has too few distinct `source_slug` values to fill 5 slots (then allow repeats, still preferring the priority order above).
 
-**After selecting the 5**, update each chosen question in `question_bank.json`: `times_asked += 1`, `last_asked = today (YYYY-MM-DD)`. Write `question_bank.json` back and validate with `python3 json.load`.
+**After selecting the 5**, update each chosen question's stats in the DB: `times_asked += 1`, `last_asked = today (YYYY-MM-DD)`. Use `python3 scripts/teach_cli.py set-memory-key` for memory fields; question bank updates should be applied via the same CLI session or noted for debrief write-back. (No direct file write — the CLI/DB owns question_bank state.)
 
 **Map each selected bank question into the warm_up JSON shape** the React app reads (field names must match exactly — do not invent new ones):
 
@@ -430,8 +477,8 @@ Read `/Users/sumanthg/Documents/teach-me/.teach/question_bank.json`. Its `questi
 
 `id` is a fresh sequential integer (1-5) local to this lesson's `warm_up` array — it is NOT the bank's `id` string (keep the bank id only inside your own bookkeeping for Step 8c write-back; store it as `source_question_id` alongside the mapped object so debrief can update the right bank entry).
 
-Write Phase 1 JSON to `/Users/sumanthg/Documents/teach-me/.teach/current_lesson.json`.
-Update `memory.json`: set `in_progress` to the topic slug.
+Write Phase 1 JSON via: `echo '<json>' | python3 scripts/teach_cli.py set-current-lesson`
+Update in_progress: `python3 scripts/teach_cli.py set-memory-key "in_progress" '"<topic-slug>"'`
 
 Output: `Phase 1 written · starting servers...`
 
@@ -474,9 +521,15 @@ Output: `Spawning assessment agent (quiz + insights)...`
 
 Before spawning, build the available topics list:
 ```python
-import json
-cur = json.load(open('/Users/sumanthg/Documents/teach-me/.teach/curriculum-v2.json'))
-mem = json.load(open('/Users/sumanthg/Documents/teach-me/.teach/memory.json'))
+import subprocess, json
+cur = json.loads(subprocess.check_output(
+    ['python3', 'scripts/teach_cli.py', 'get-curriculum'],
+    cwd='/Users/sumanthg/Documents/teach-me'
+).decode())
+mem = json.loads(subprocess.check_output(
+    ['python3', 'scripts/teach_cli.py', 'get-memory'],
+    cwd='/Users/sumanthg/Documents/teach-me'
+).decode())
 done = {c['slug'] for c in mem.get('completed', [])}
 done.add(chosen_slug)  # exclude current lesson too
 available_topics = [
@@ -493,7 +546,7 @@ Substitute `[AVAILABLE_TOPICS_JSON]` in the prompt with `json.dumps(available_to
 Generate quiz questions AND key insights for a lesson on "[TOPIC]".
 Concepts: [CONCEPT_TITLES_AND_SUMMARIES]
 
-QUIZ: exactly 5 questions. Use simple, concrete scenarios — not gotchas. Each question should test whether the reader understood the mechanism, not whether they memorized a fact. Use plain situations: "You have a table with 10M rows and 2M dead tuples..." or "A model has H=32 query heads and G=4 KV heads...". Include at least 1 multiple_choice and at least 1 scenario-based question. Distractors should be plausible but clearly wrong once you understand the concept. Each explanation must be 2-4 sentences: state the right answer, explain why the wrong options fail, and call out the common mistake.
+QUIZ: exactly 5 questions. Use simple, concrete scenarios — not gotchas. Each question should test whether the reader understood the mechanism, not whether they memorized a fact. Use plain situations: "You have a table with 10M rows and 2M dead tuples..." or "A model has H=32 query heads and G=4 KV heads...". Include at least 1 multiple_choice and at least 1 scenario-based question. EVERY question, regardless of type (multiple_choice, scenario, true_false), MUST include a 4-option (or 2-option for true_false) `options` array — the UI renders these as clickable choices, and a question with `options: null` forces the reader to type an answer and just click "show answer" instead of self-checking interactively. Never return `options: null` for a scenario question — phrase it as "which of these is the right call" with 4 plausible options instead of leaving it open-ended. Distractors should be plausible but clearly wrong once you understand the concept. Each explanation must be 2-4 sentences: state the right answer, explain why the wrong options fail, and call out the common mistake.
 
 INSIGHTS: 2-3 items. Write like a colleague saying "hey, watch out for this in production." Real gotchas only — things that actually bite people.
 
@@ -526,10 +579,10 @@ Return ONLY a single JSON object (no markdown):
 Wait for the agent. Log: `Quiz+Insights done`. Then:
 
 1. Parse the result
-2. Read `/Users/sumanthg/Documents/teach-me/.teach/current_lesson.json`
+2. Read the current lesson: `cat /Users/sumanthg/Documents/teach-me/.teach/current_lesson.json` (direct read is fine — current_lesson is a scratch file)
 3. Merge in: `key_insights`, `quiz`, `summary`, `further_reading`, `design_kata`, `scenario`, `_suggestions`
 4. Set `_generation_status: "complete"`
-5. Write merged JSON back to `current_lesson.json`
+5. Write merged JSON back via: `echo '<merged-json>' | python3 scripts/teach_cli.py set-current-lesson`
 6. Output: `Generation complete.`
 
 ---
@@ -538,7 +591,7 @@ Wait for the agent. Log: `Quiz+Insights done`. Then:
 
 Capstones are produce-then-critique sessions. They run **entirely in the terminal** — no lesson generation, no concept agents, no server, no React app.
 
-Update `memory.json`: set `in_progress` to the capstone slug. Then:
+Update in_progress via: `python3 scripts/teach_cli.py set-memory-key "in_progress" '"<capstone-slug>"'`. Then:
 
 1. **Present the brief.** Output the capstone's `prompt` requirements, then:
 
@@ -564,8 +617,8 @@ Update `memory.json`: set `in_progress` to the capstone slug. Then:
 3. **One revision round.** Invite a revision targeting the weakest 1–2 dimensions. Re-score only those. If the user says "done" instead, proceed to logging.
 4. **Log on "done".** Compute `overall = mean(final dimension scores) / 5`. Then:
 
-   - `memory.json`: append to `completed[]` — `{slug, title, domain: "design-session", date: today, quiz_score_pct: overall, time_spent_minutes: estimate, weak_areas: [each dimension scoring <= 2, as a short phrase like "capacity math"], notes: "1-2 sentence summary of design strengths/gaps", next_review_date: per the normal score rules}`. Set `in_progress: null`. Update `streak` and `last_session_date` per the normal rules.
-   - `curriculum-v2.json`: set the capstone's `status: "completed"`, add `completed_date` and `quiz_score_pct`.
+   - Update memory via CLI: read current state with `python3 scripts/teach_cli.py get-memory`, append to `completed[]`, then write each changed key back with `python3 scripts/teach_cli.py set-memory-key <key> '<json>'`. Specifically: `set-memory-key "completed" '<updated-array>'`, `set-memory-key "in_progress" 'null'`, `set-memory-key "streak" '<number>'`, `set-memory-key "last_session_date" '"YYYY-MM-DD"'`. Entry to append: `{slug, title, domain: "design-session", date: today, quiz_score_pct: overall, time_spent_minutes: estimate, weak_areas: [each dimension scoring <= 2, as a short phrase like "capacity math"], notes: "1-2 sentence summary of design strengths/gaps", next_review_date: per the normal score rules}`.
+   - Update curriculum: `python3 scripts/teach_cli.py update-topic-status <capstone-slug> "completed"` (add `completed_date` and `quiz_score_pct` as extra args if the CLI supports them, otherwise note them in memory).
    - **Skip the normal Step 8 debrief questions** — the rubric already captured scores and weak areas.
    - Output the normal completion block from Step 8c, using the rubric summary in place of the debrief answer.
 
@@ -639,9 +692,24 @@ When you're done, come back here and say "done" — I'll log your session.
 
 **Trigger:** user says "done", "finished", "complete", or similar.
 
+### Step 8-Q — Queue Slot Completion ("done N" where N ≥ 2)
+
+If the trigger is "done 2", "done 3", etc. (the word "done" followed by a slot number ≥ 2):
+
+1. Extract `N` from the message.
+2. Read queue lesson: `cat /Users/sumanthg/Documents/teach-me/.teach/queue_lesson_{N}.json` (direct file read — queue slots are scratch files). If not found, output: `⚠️ No queued lesson at slot [N]. Did you generate it with /teach [topic] [N]?` and stop.
+3. Run the normal debrief (Step 8c) using this lesson's data — ask for weak areas, show design_kata if present, ask for warm-up missed questions, ask for quiz score.
+4. Log via CLI: `python3 scripts/teach_cli.py get-memory` to read current state, then update `completed` and memory keys per Step 8c rules using `python3 scripts/teach_cli.py set-memory-key`. Use this lesson's `meta.slug`, `meta.title`, domain from `lesson_queue.json` slot N entry (or "custom" if not found). **`in_progress` is not modified** — slot N is independent of slot 1.
+5. Archive: `cp .teach/queue_lesson_{N}.json .teach/archive/<slug>.json`
+6. Update `lesson_queue.json`: remove slot N. If only slot 1 remains (or no slots remain), delete `lesson_queue.json` entirely.
+7. Output the normal Step 8c completion block.
+8. **STOP. Do not continue to Step 8a.**
+
+"done", "done 1", "finished", "complete" (without a slot number) → fall through to Step 8a below (normal slot-1 / in_progress flow).
+
 ### Step 8a — Check for Already-Logged Session
 
-Read `memory.json`. If `in_progress == null` AND the topic slug already appears in `completed[].slug`:
+Run `python3 scripts/teach_cli.py get-memory`. If `in_progress == null` AND the topic slug already appears in `completed[].slug`:
 
 ```
 Session already logged.
@@ -661,9 +729,8 @@ If `in_progress` starts with `"review-"`, run this flow instead of the normal de
    - score 60–79% → next_review_date = today + 14 days
    - score < 60% → next_review_date = today + 7 days
      Apply the same **uniqueness guard** as Step 8: if this date collides with another entry's `next_review_date` in `completed[]`, push forward one day at a time until unique.
-3. In `memory.json`, find the `completed[]` entry for the original slug (strip the `"review-"` prefix). Update its `next_review_date`.
-4. Set `in_progress` to `null`.
-5. Write `memory.json`.
+3. Read memory: `python3 scripts/teach_cli.py get-memory`. Find the `completed[]` entry for the original slug (strip the `"review-"` prefix). Update its `next_review_date`. Write back: `python3 scripts/teach_cli.py set-memory-key "completed" '<updated-array>'`.
+4. Clear in_progress: `python3 scripts/teach_cli.py set-memory-key "in_progress" 'null'`.
 6. Output: `📚 Review logged. Next review of [topic title] in [N] days.`
 7. Ask: `Start today's new lesson? (y/n)` — if yes, re-run Step 2 normally (now with no due reviews).
 
@@ -705,11 +772,11 @@ Warm-up: which question numbers did you miss? (e.g. 2,4 — or none)
 Wait for their answer. Parse the numbers (or "none" = all 5 correct). For each of the 5 warm-up questions:
 
 - If its number was NOT in the missed list (i.e. answered correctly):
-  - In `question_bank.json`, find the bank question by the `source_question_id` you stored when building `warm_up` (Step 4c) and increment its `times_correct += 1`.
-  - If that warm-up item's `target_weak_area` is non-null: find the matching entry in `memory.json`'s `weak_areas[]` by `phrase` and increment its `reinforced_count += 1`. If `reinforced_count` reaches `>= 2`, set `retired: true` on that entry.
+  - Find the bank question by the `source_question_id` stored when building `warm_up` (Step 4c) and increment its `times_correct += 1`. (Question bank state is tracked in memory — update via CLI or note for batch write.)
+  - If that warm-up item's `target_weak_area` is non-null: read current memory with `python3 scripts/teach_cli.py get-memory`, find the matching `weak_areas[]` entry by `phrase`, increment `reinforced_count += 1`, and if `reinforced_count >= 2` set `retired: true`. Write the updated `weak_areas` array back: `python3 scripts/teach_cli.py set-memory-key "weak_areas" '<updated-array>'`.
 - If its number WAS in the missed list: no bank or weak_area update for that question (a miss doesn't reinforce anything).
 
-Write `question_bank.json` and `memory.json` back after this step; validate both with `python3 json.load`.
+After processing all 5 warm-up questions, write back any changed memory keys via `python3 scripts/teach_cli.py set-memory-key <key> '<json>'`.
 
 Then ask:
 
@@ -728,12 +795,14 @@ From quiz score:
 
 **Uniqueness guard:** before writing this date, check it against every `next_review_date` already present in `completed[]`. If it collides with an existing one, push it forward one day and re-check, repeating until it is unique across all `completed[]` entries (including the one you're about to add).
 
-### Update memory.json
+### Update Memory
 
-Read the current `.teach/memory.json`, then write back with these changes:
+Read current memory with `python3 scripts/teach_cli.py get-memory`, then write back each changed key via `python3 scripts/teach_cli.py set-memory-key <key> '<json>'`:
 
-1. **Move `in_progress` → `completed[]`** by appending a new entry:
+1. **Move `in_progress` → `completed[]`** by reading the current `completed` array, appending a new entry, and writing back:
+   `python3 scripts/teach_cli.py set-memory-key "completed" '<updated-array>'`
 
+   Entry to append:
    ```json
    {
      "slug": "[topic slug]",
@@ -748,14 +817,15 @@ Read the current `.teach/memory.json`, then write back with these changes:
      "kata_passed": [true|false — omit this field entirely if the lesson had no design_kata]
    }
    ```
-2. **Set `in_progress`** to `null`
+2. **Set `in_progress`** to null: `python3 scripts/teach_cli.py set-memory-key "in_progress" 'null'`
 3. **Update `streak`:**
 
    - If `last_session_date` == yesterday's date (YYYY-MM-DD): `streak + 1`
    - If `last_session_date` == today (duplicate session): keep streak unchanged
    - Otherwise (gap > 1 day or null): reset `streak` to 1
-4. **Set `last_session_date`** to today's date (YYYY-MM-DD)
-5. **Append to global `weak_areas`** list: The global `weak_areas` in memory.json is an array of objects. When appending the debrief phrase:
+   Write: `python3 scripts/teach_cli.py set-memory-key "streak" '<number>'`
+4. **Set `last_session_date`**: `python3 scripts/teach_cli.py set-memory-key "last_session_date" '"YYYY-MM-DD"'`
+5. **Append to global `weak_areas`** list: Read current `weak_areas` array from memory. The global `weak_areas` is an array of objects. When appending the debrief phrase:
 
    - Check if a non-retired item with the same `phrase` already exists. If yes, skip.
    - If not, append:
@@ -768,14 +838,12 @@ Read the current `.teach/memory.json`, then write back with these changes:
        "source_slug": "[topic slug]"
      }
      ```
+   Write: `python3 scripts/teach_cli.py set-memory-key "weak_areas" '<updated-array>'`
 
-### Update curriculum-v2.json
+### Update Curriculum Status
 
-Read `/Users/sumanthg/Documents/teach-me/.teach/curriculum-v2.json`:
-
-- If the completed slug exists in any track's `ladder[]` (or is a track's capstone): set its `status: "completed"`, add `completed_date` (today) and `quiz_score_pct`.
-- If the slug is NOT in the graph (custom free-typed topic): append it to the `wildcard` track's ladder as `{slug, title, concepts: [], builds_on: [], difficulty, estimated_minutes, status: "completed", completed_date, quiz_score_pct}` — so future momentum scoring can see it.
-- Write the file back.
+- If the completed slug exists in any track's `ladder[]` (or is a track's capstone): `python3 scripts/teach_cli.py update-topic-status <slug> "completed"`
+- If the slug is NOT in the graph (custom free-typed topic): `python3 scripts/teach_cli.py update-topic-status <slug> "completed"` — the CLI will append it to the wildcard track if not found, so future momentum scoring sees it. Pass `completed_date` and `quiz_score_pct` as additional args if the CLI supports them.
 
 ### Archive the Lesson
 
@@ -819,7 +887,7 @@ Immediately after printing Step 8's completion output, pre-generate tomorrow's l
    - Write Phase 1 to a temp variable (do NOT overwrite current_lesson.json)
    - After all agents complete, assemble the FULL lesson JSON (both phases merged, no coding_challenge field)
    - Set `_generation_status: "complete"`
-   - Write to `/Users/sumanthg/Documents/teach-me/.teach/next_lesson.json`
+   - Write to `/Users/sumanthg/Documents/teach-me/.teach/next_lesson.json` (this is a pre-cache scratch file — write directly)
 6. Output:
    ```
    ⚡ Next lesson pre-generated: [Next Topic Title] — instant on next /teach
@@ -832,7 +900,7 @@ Immediately after printing Step 8's completion output, pre-generate tomorrow's l
 
 | Problem                                      | Response                                                                                                                        |
 | -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| `.teach/memory.json` missing               | Create it fresh with the default schema (streak: 0, completed: [], in_progress: null, last_session_date: null, weak_areas: []). |
+| Memory DB missing or corrupted             | Run `python3 scripts/teach_cli.py get-memory` — if it fails, re-initialize the DB schema via the CLI's init command or check the SQLite DB at `.teach/teach.db`. |
 | Server not running                           | Auto-started by the skill — check`/tmp/teach-server.log` if the page won't load                                              |
 | Port 8001 already in use                     | API server already running — just open http://localhost:8001                                                                   |
 | ai-engineer agent fails to return valid JSON | Use the fallback topic defined in Step 2c and proceed normally.                                                                 |
