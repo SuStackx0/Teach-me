@@ -20,8 +20,8 @@ ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(ROOT / "app"))
 
 from db import get_db, init_db, DB_PATH, get_memory, get_curriculum, get_all_questions
-from db import set_current_lesson, meta_set, update_topic_status, get_lesson_by_slug
-from db import set_queue_lesson, set_requiz_queue, upsert_weak_area
+from db import set_current_lesson, get_current_lesson, meta_set, update_topic_status, get_lesson_by_slug
+from db import set_queue_lesson, get_queue_lesson, get_queue_slots, set_requiz_queue, upsert_weak_area
 
 db_path = ROOT / "teach.db"
 init_db(db_path)
@@ -78,6 +78,19 @@ def main():
         set_requiz_queue(conn, slugs)
         conn.commit()
         print("ok")
+
+    elif cmd == "get-current-lesson":
+        data = get_current_lesson(conn)
+        print(json.dumps(data if data else {}, indent=2))
+
+    elif cmd == "get-queue-slots":
+        slots = get_queue_slots(conn)
+        print(json.dumps(slots))
+
+    elif cmd == "get-queue-lesson":
+        slot = int(sys.argv[2])
+        data = get_queue_lesson(conn, slot)
+        print(json.dumps(data if data else {}, indent=2))
 
     else:
         print(f"Unknown command: {cmd}", file=sys.stderr)

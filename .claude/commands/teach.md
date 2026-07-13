@@ -33,11 +33,11 @@ Skip Steps 1–4c entirely. Run only the lesson generation (Steps 4a–4d equiva
 2. Output: `📖 Queuing Lesson [N]: [topic]. Generating...`
 3. Run Steps 4a–4d to generate the full lesson (skeleton → parallel concept agents → quiz+insights agent).
 4. Write the completed lesson JSON to the queue slot via: `echo '<json>' | python3 scripts/teach_cli.py set-queue-lesson <slot>`. Do **not** touch `current_lesson.json` or `in_progress`.
-5. After writing, build/update the lesson queue registry at `/Users/sumanthg/Documents/teach-me/.teach/lesson_queue.json`:
-   - Read `lesson_queue.json` if it exists; otherwise start fresh.
-   - If slot 1 entry is missing: read `current_lesson.json` (if exists) to get `meta.slug` and `meta.title` for slot 1; add it with `"status": "active"`.
-   - Upsert the new slot: `{"slot": N, "slug": "<slug>", "title": "<title>", "status": "ready"}`.
-   - Write back. Validate with `python3 -c "import json; json.load(open('/Users/sumanthg/Documents/teach-me/.teach/lesson_queue.json'))"`.
+5. The queue slot is already registered in SQLite by the `set-queue-lesson` call above. Confirm it was written:
+   ```bash
+   python3 scripts/teach_cli.py get-queue-slots
+   ```
+   The new slot number N should appear in the returned list.
 6. Output:
    ```
    ✓ Lesson [N] queued: [title]
@@ -46,7 +46,7 @@ Skip Steps 1–4c entirely. Run only the lesson generation (Steps 4a–4d equiva
    ```
 7. **STOP. Do not run Steps 5 or 8.**
 
-**If `queue_slot = 1`** (default): continue with normal Step 1 flow below. After Step 4c completes (current_lesson.json written), if `lesson_queue.json` already exists on disk, update its slot 1 entry to reflect the new lesson's slug/title/status.
+**If `queue_slot = 1`** (default): continue with normal Step 1 flow below. After Step 4c completes (current lesson written to SQLite), confirm slot 1 is present in: `python3 scripts/teach_cli.py get-queue-slots`.
 
 ---
 
@@ -79,7 +79,7 @@ When reading `weak_areas` for any purpose (warm-up generation, reinforcement), f
 Run these checks every time, right after reading `memory.json`. Fix silently (no need to announce success — only note if a repair happened).
 
 **(a) Stale in_progress vs current_lesson:**
-If `in_progress != null`: read `.teach/current_lesson.json` (if it exists) and compare `meta.slug` to `in_progress`.
+If `in_progress != null`: run `python3 scripts/teach_cli.py get-current-lesson` (returns `{}` if not set) and compare `meta.slug` to `in_progress`.
 
 - If `current_lesson.json` does not exist, OR its `meta.slug` does not match `in_progress`: clear in_progress by running `python3 scripts/teach_cli.py set-memory-key "in_progress" 'null'`. Note internally: "state repaired". Do not alarm the user — just proceed with a clean state.
 - If it matches, leave as-is (normal crash-recovery flow in Step 2a still applies).
@@ -93,10 +93,10 @@ Run `python3 scripts/teach_cli.py get-curriculum` to read the curriculum. For ev
 
 ### Step 2a — Crash Recovery Check
 
-Check if `in_progress != null` AND `.teach/current_lesson.json` exists AND its `_generation_status == "generating_assessments"`:
+Check if `in_progress != null` AND a current lesson exists in SQLite AND its `_generation_status == "generating_assessments"`:
 
 ```bash
-cat /Users/sumanthg/Documents/teach-me/.teach/current_lesson.json 2>/dev/null | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('_generation_status',''))"
+python3 scripts/teach_cli.py get-current-lesson | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('_generation_status',''))"
 ```
 
 If the above condition is true:
@@ -115,7 +115,7 @@ If any are due:
 - Select the one with the **earliest** `next_review_date` (this is the one-review-per-day pick).
 - **Uniqueness guard:** this selection step never changes existing dates — the guard below only applies when a *new* `next_review_date` is computed in Step 8. Whenever Step 8 computes a new `next_review_date` for any `completed[]` entry, check every OTHER entry's `next_review_date` in `completed[]`. If the new date collides with one already in use, push the new date forward by one day, repeat the collision check, until it lands on a date no other entry has.
 - Output: `📚 Review due: [slug title]. Spaced repetition session starting...`
-- Check if `.teach/archive/[slug].json` exists. If yes, load it to get quiz questions + core_concepts.
+- Load the archived lesson via: `python3 scripts/teach_cli.py get-lesson <slug>` (returns `{}` if not found). If non-empty, use its `quiz` and `core_concepts` fields.
 - Generate 10 review questions (use the archived lesson's quiz + generate new ones from its `core_concepts` titles). Questions test recall — no explanations shown upfront, just question → user answers → reveal answer.
 - Write review session JSON via: `echo '<json>' | python3 scripts/teach_cli.py set-current-lesson`
   ```json
@@ -579,7 +579,7 @@ Return ONLY a single JSON object (no markdown):
 Wait for the agent. Log: `Quiz+Insights done`. Then:
 
 1. Parse the result
-2. Read the current lesson: `cat /Users/sumanthg/Documents/teach-me/.teach/current_lesson.json` (direct read is fine — current_lesson is a scratch file)
+2. Read the current lesson: `python3 scripts/teach_cli.py get-current-lesson`
 3. Merge in: `key_insights`, `quiz`, `summary`, `further_reading`, `design_kata`, `scenario`, `_suggestions`
 4. Set `_generation_status: "complete"`
 5. Write merged JSON back via: `echo '<merged-json>' | python3 scripts/teach_cli.py set-current-lesson`
@@ -697,11 +697,11 @@ When you're done, come back here and say "done" — I'll log your session.
 If the trigger is "done 2", "done 3", etc. (the word "done" followed by a slot number ≥ 2):
 
 1. Extract `N` from the message.
-2. Read queue lesson: `cat /Users/sumanthg/Documents/teach-me/.teach/queue_lesson_{N}.json` (direct file read — queue slots are scratch files). If not found, output: `⚠️ No queued lesson at slot [N]. Did you generate it with /teach [topic] [N]?` and stop.
+2. Read queue lesson: `python3 scripts/teach_cli.py get-queue-lesson N` (returns `{}` if slot not found). If empty, output: `⚠️ No queued lesson at slot [N]. Did you generate it with /teach [topic] [N]?` and stop.
 3. Run the normal debrief (Step 8c) using this lesson's data — ask for weak areas, show design_kata if present, ask for warm-up missed questions, ask for quiz score.
-4. Log via CLI: `python3 scripts/teach_cli.py get-memory` to read current state, then update `completed` and memory keys per Step 8c rules using `python3 scripts/teach_cli.py set-memory-key`. Use this lesson's `meta.slug`, `meta.title`, domain from `lesson_queue.json` slot N entry (or "custom" if not found). **`in_progress` is not modified** — slot N is independent of slot 1.
-5. Archive: `cp .teach/queue_lesson_{N}.json .teach/archive/<slug>.json`
-6. Update `lesson_queue.json`: remove slot N. If only slot 1 remains (or no slots remain), delete `lesson_queue.json` entirely.
+4. Log via CLI: `python3 scripts/teach_cli.py get-memory` to read current state, then update `completed` and memory keys per Step 8c rules using `python3 scripts/teach_cli.py set-memory-key`. Use this lesson's `meta.slug`, `meta.title`, domain from the lesson data (or "custom" if not found). **`in_progress` is not modified** — slot N is independent of slot 1.
+5. Archive: `python3 scripts/teach_cli.py get-queue-lesson N > /Users/sumanthg/Documents/teach-me/.teach/archive/<slug>.json`
+6. The queue slot is already tracked in SQLite. No registry file to update. Verify remaining slots via `python3 scripts/teach_cli.py get-queue-slots`.
 7. Output the normal Step 8c completion block.
 8. **STOP. Do not continue to Step 8a.**
 
@@ -747,7 +747,7 @@ e.g. "batch speculation", "acceptance rate math", "warp scheduling")
 
 Wait for their answer. Use it to populate `weak_areas`.
 
-**Design kata.** If `current_lesson.json` has a `design_kata` field and the user hasn't seen it yet this session, show it now:
+**Design kata.** If the current lesson (from `python3 scripts/teach_cli.py get-current-lesson`) has a `design_kata` field and the user hasn't seen it yet this session, show it now:
 
 ```
 One more thing — a quick design call:
@@ -851,7 +851,7 @@ After writing `memory.json`:
 
 ```bash
 mkdir -p /Users/sumanthg/Documents/teach-me/.teach/archive
-cp /Users/sumanthg/Documents/teach-me/.teach/current_lesson.json /Users/sumanthg/Documents/teach-me/.teach/archive/[slug].json
+python3 scripts/teach_cli.py get-current-lesson > /Users/sumanthg/Documents/teach-me/.teach/archive/[slug].json
 ```
 
 Output: `📁 Lesson archived → .teach/archive/[slug].json`
