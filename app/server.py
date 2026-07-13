@@ -46,11 +46,24 @@ DOMAIN_ORDER = ["llm-arch","inference","training","agentic","ml-ds","mlops","bac
 
 @app.get("/api/queue")
 def get_queue():
-    slots = DB.get_queue_slots(_CONN)
+    slot_nums = DB.get_queue_slots(_CONN)
     current = DB.get_current_lesson(_CONN)
-    if current and 1 not in slots:
-        slots = [1] + slots
-    return {"slots": sorted(slots)}
+    if current and 1 not in slot_nums:
+        slot_nums = [1] + slot_nums
+
+    slots = []
+    for num in sorted(slot_nums):
+        data = DB.get_queue_lesson(_CONN, num)
+        if data is None:
+            continue
+        meta = data.get("meta", {}) if isinstance(data, dict) else {}
+        slots.append({
+            "slot": num,
+            "slug": meta.get("slug", ""),
+            "title": meta.get("title", f"Lesson {num}"),
+            "status": "active" if num == 1 else "ready",
+        })
+    return {"slots": slots}
 
 
 @app.get("/api/queue/lesson/{slot}")
