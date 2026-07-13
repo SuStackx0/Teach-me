@@ -1,4 +1,4 @@
-import { NavLink } from 'react-router-dom'
+import { NavLink, useLocation } from 'react-router-dom'
 import { useEffect, useState, useRef } from 'react'
 import WishlistPanel from './WishlistPanel.jsx'
 
@@ -9,7 +9,10 @@ export default function TopNav() {
   const [wishlistOpen, setWishlistOpen] = useState(false)
   const [wishlistCount, setWishlistCount] = useState(0)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [moreOpen, setMoreOpen] = useState(false)
   const menuRef = useRef(null)
+  const moreRef = useRef(null)
+  const location = useLocation()
 
   useEffect(() => {
     fetch('/api/memory')
@@ -39,32 +42,44 @@ export default function TopNav() {
   }, [dark])
 
   useEffect(() => {
-    if (!mobileMenuOpen) return
+    if (!mobileMenuOpen && !moreOpen) return
     const handle = (e) => {
-      if (menuRef.current && !menuRef.current.contains(e.target)) setMobileMenuOpen(false)
+      if (menuRef.current && !menuRef.current.contains(e.target)) {
+        setMobileMenuOpen(false)
+        setMoreOpen(false)
+      }
     }
     document.addEventListener('mousedown', handle)
     return () => document.removeEventListener('mousedown', handle)
-  }, [mobileMenuOpen])
+  }, [mobileMenuOpen, moreOpen])
 
-  const navLinks = [
+  // Close More dropdown when route changes
+  useEffect(() => { setMoreOpen(false) }, [location.pathname])
+
+  const primaryLinks = [
     { to: '/', label: 'Today', end: true },
     { to: '/library', label: 'Library' },
     { to: '/stats', label: 'Stats' },
-    { to: '/notes', label: notesCount > 0 ? <>Notes <span className="notes-nav-badge">{notesCount}</span></> : 'Notes' },
+    { to: '/review', label: 'Review' },
+    { to: '/search', label: 'Search' },
+  ]
+
+  const moreLinks = [
+    { to: '/notes', label: notesCount > 0 ? `Notes (${notesCount})` : 'Notes' },
     { to: '/map', label: 'Map' },
     { to: '/timeline', label: 'Timeline' },
-    { to: '/search', label: 'Search' },
     { to: '/bookmarks', label: 'Bookmarks' },
     { to: '/til', label: 'TIL' },
     { to: '/highlights', label: 'Highlights' },
     { to: '/glossary', label: 'Glossary' },
     { to: '/snippets', label: 'Snippets' },
-    { to: '/review', label: 'Review' },
     { to: '/collections', label: 'Collections' },
     { to: '/planner', label: 'Planner' },
     { to: '/flashcards', label: 'Flashcards' },
   ]
+
+  const allLinks = [...primaryLinks, ...moreLinks]
+  const moreActive = moreLinks.some(l => location.pathname === l.to)
 
   return (
     <nav className="topnav" ref={menuRef}>
@@ -72,9 +87,36 @@ export default function TopNav() {
 
       {/* Desktop nav links */}
       <div className="topnav-links">
-        {navLinks.map(({ to, label, end }) => (
+        {primaryLinks.map(({ to, label, end }) => (
           <NavLink key={to} to={to} end={end} className={({ isActive }) => 'topnav-link' + (isActive ? ' active' : '')}>{label}</NavLink>
         ))}
+
+        {/* More dropdown */}
+        <div style={{ position: 'relative' }} ref={moreRef}>
+          <button
+            onClick={() => setMoreOpen(o => !o)}
+            className={'topnav-link' + (moreActive ? ' active' : '')}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}
+          >
+            More <span style={{ fontSize: '0.65rem', opacity: 0.7 }}>{moreOpen ? '▲' : '▼'}</span>
+          </button>
+          {moreOpen && (
+            <div style={{
+              position: 'absolute', top: 'calc(100% + 8px)', left: 0,
+              background: 'var(--surface-2)', border: '1px solid var(--border)',
+              borderRadius: 10, padding: '6px 4px', minWidth: 150,
+              boxShadow: '0 8px 24px rgba(0,0,0,0.15)', zIndex: 200,
+              display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2,
+            }}>
+              {moreLinks.map(({ to, label }) => (
+                <NavLink key={to} to={to} className={({ isActive }) => 'topnav-link' + (isActive ? ' active' : '')}
+                  style={{ whiteSpace: 'nowrap', fontSize: '0.82rem', padding: '5px 10px' }}>
+                  {label}
+                </NavLink>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Mobile hamburger */}
@@ -82,9 +124,9 @@ export default function TopNav() {
         {mobileMenuOpen ? '✕' : '☰'}
       </button>
 
-      {/* Mobile dropdown */}
+      {/* Mobile dropdown — all links */}
       <div className={`topnav-mobile-menu${mobileMenuOpen ? ' open' : ''}`}>
-        {navLinks.map(({ to, label, end }) => (
+        {allLinks.map(({ to, label, end }) => (
           <NavLink key={to} to={to} end={end} className={({ isActive }) => 'topnav-link' + (isActive ? ' active' : '')} onClick={() => setMobileMenuOpen(false)}>{label}</NavLink>
         ))}
       </div>
