@@ -1,25 +1,32 @@
 import { useEffect, useRef, useState } from 'react'
 
-let mermaidReady = false
-let mermaidInitialized = false
+function isDark() {
+  return document.documentElement.classList.contains('dark')
+}
 
-async function ensureMermaid() {
-  if (mermaidReady) return true
-  if (mermaidInitialized) return false
-  mermaidInitialized = true
-  try {
-    const m = await import('mermaid')
-    m.default.initialize({ startOnLoad: false, theme: 'default', fontFamily: 'IBM Plex Mono, monospace' })
-    mermaidReady = true
-    return true
-  } catch {
-    return false
-  }
+async function renderDiagram(content, dark) {
+  const { default: mermaid } = await import('mermaid')
+  mermaid.initialize({
+    startOnLoad: false,
+    theme: dark ? 'dark' : 'default',
+    fontFamily: 'IBM Plex Mono, monospace',
+  })
+  const id = `mmd-${Date.now()}-${Math.floor(Math.random() * 1e6)}`
+  const { svg } = await mermaid.render(id, content)
+  return svg
 }
 
 export default function MermaidDiagram({ diagram }) {
   const ref = useRef(null)
   const [failed, setFailed] = useState(false)
+  const [dark, setDark] = useState(isDark)
+
+  // Watch for dark-mode class toggled on <html>
+  useEffect(() => {
+    const observer = new MutationObserver(() => setDark(isDark()))
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] })
+    return () => observer.disconnect()
+  }, [])
 
   useEffect(() => {
     if (!diagram) return
@@ -28,19 +35,13 @@ export default function MermaidDiagram({ diagram }) {
     if (type !== 'mermaid') return
 
     let cancelled = false
-    ensureMermaid().then(async (ok) => {
-      if (!ok || cancelled || !ref.current) { setFailed(true); return }
-      try {
-        const { default: mermaid } = await import('mermaid')
-        const id = `mmd-${Math.random().toString(36).slice(2)}`
-        const { svg } = await mermaid.render(id, content)
-        if (!cancelled && ref.current) ref.current.innerHTML = svg
-      } catch {
-        if (!cancelled) setFailed(true)
-      }
+    renderDiagram(content, dark).then((svg) => {
+      if (!cancelled && ref.current) ref.current.innerHTML = svg
+    }).catch(() => {
+      if (!cancelled) setFailed(true)
     })
     return () => { cancelled = true }
-  }, [diagram])
+  }, [diagram, dark])
 
   if (!diagram) return null
   const { type, content } = diagram

@@ -1,29 +1,42 @@
 import { useState } from 'react'
 
 export default function CodeBlock({ example }) {
-  const [open, setOpen] = useState(false)
-  const { filename, language, code, line_by_line } = example
+  const [outputOpen, setOutputOpen] = useState(false)
+  const { filename, language, code, caption, expected_output } = example
+  const hasHeader = !!(filename || caption || language || expected_output)
 
   return (
     <div className="code-block-wrap">
-      {filename && <div className="code-filename">{filename}</div>}
-      <pre><code>{code}</code></pre>
-      {line_by_line && line_by_line.length > 0 && (
-        <>
-          <button className="lbl-toggle" onClick={() => setOpen(o => !o)}>
-            {open ? '▲ Hide' : '▼ Line-by-line breakdown'}
-          </button>
-          {open && (
-            <div className="lbl-list">
-              {line_by_line.map((entry, i) => (
-                <div key={i} className="lbl-item">
-                  <span className="lbl-lines">L{entry.lines}</span>
-                  <span className="lbl-text">{entry.explanation}</span>
-                </div>
-              ))}
-            </div>
-          )}
-        </>
+      {hasHeader && (
+        <div className="code-block-header">
+          <div className="code-block-meta">
+            {filename && <span className="code-filename">{filename}</span>}
+            {caption && <span className="code-caption">{caption}</span>}
+          </div>
+          <div className="code-block-actions">
+            {language && <span className="code-lang-badge">{language}</span>}
+            {expected_output && (
+              <button
+                className={`run-btn${outputOpen ? ' active' : ''}`}
+                onClick={() => setOutputOpen(v => !v)}
+                title="Show simulated output"
+              >
+                {outputOpen ? '▲ hide' : '▶ run'}
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
+      <pre className={hasHeader ? 'has-header' : ''}><code>{code}</code></pre>
+
+      {expected_output && (
+        <div className={`code-output${outputOpen ? ' open' : ''}`} aria-hidden={!outputOpen}>
+          <span className="code-output-label">
+            output<span className="cursor-blink">_</span>
+          </span>
+          <pre className="code-output-pre">{expected_output}</pre>
+        </div>
       )}
     </div>
   )

@@ -437,7 +437,8 @@ OUTPUT FORMAT — return ONLY a valid JSON object, no markdown wrapper:
     {
       "language": "python|sql|bash",
       "caption": "string — one sentence explaining what this snippet shows",
-      "code": "string — 5-10 lines max, illustrative only, no imports needed"
+      "code": "string — 5-10 lines max, illustrative only, no imports needed",
+      "expected_output": "string — simulated output the snippet would produce, written to make the concept click. Include realistic values, row counts, shapes, or timing numbers. 2-8 lines."
     }
   ],
   "micro_quiz": [
@@ -661,6 +662,7 @@ Update in_progress via: `python3 scripts/teach_cli.py set-memory-key "in_progres
 - The goal is to show the concept, not to ship runnable code. Clarity beats completeness.
 - Use realistic variable names and values (e.g. `H=64, G=8` not `x=4, y=1`).
 - No `line_by_line` field — the snippet caption + the explanation text carries that context.
+- Always include `expected_output` — craft the output to make the concept land. Use realistic values, row counts, memory numbers, or timing. 2-8 lines. This is shown in a terminal panel when the user clicks "▶ run".
 
 ### Quiz Rules (5-8 questions)
 
