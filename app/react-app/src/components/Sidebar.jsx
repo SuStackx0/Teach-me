@@ -12,9 +12,36 @@ function elapsed(startTime) {
 export default function Sidebar({ lesson, sections, sectionIdx, visited, mqScores, sectionLabel, goTo, quizScore, startTime, sectionProgress, onSectionCheck }) {
   const meta = lesson.meta || {}
   const [tick, setTick] = useState(0)
+  const [queue, setQueue] = useState([])
+  const [activateError, setActivateError] = useState(null)
+  const [activating, setActivating] = useState(false)
+
+  function activateSlot(slot) {
+    if (activating) return
+    setActivating(true)
+    setActivateError(null)
+    fetch(`/api/queue/activate/${slot}`, { method: 'POST' })
+      .then(r => {
+        if (r.ok) {
+          window.location.reload()
+        } else if (r.status === 404) {
+          setActivateError(slot)
+          setActivating(false)
+        }
+      })
+      .catch(() => { setActivateError(slot); setActivating(false) })
+  }
+
   useEffect(() => {
     const t = setInterval(() => setTick(x => x + 1), 10000)
     return () => clearInterval(t)
+  }, [])
+
+  useEffect(() => {
+    fetch('/api/queue')
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (d?.slots) setQueue(d.slots.filter(s => s.status === 'ready').slice(0, 4)) })
+      .catch(() => {})
   }, [])
 
   function dotClass(section, i) {
@@ -91,6 +118,29 @@ export default function Sidebar({ lesson, sections, sectionIdx, visited, mqScore
         <div className="sidebar-stats-row"><span>Elapsed</span><span>{elapsed(startTime)}</span></div>
         <div className="sidebar-stats-row"><span>Quiz</span><span style={{ color: 'var(--success)' }}>{quizScore}/{quizTotal}</span></div>
       </div>
+
+      {queue.length > 0 && (
+        <div style={{ marginTop: '1rem', padding: '0.75rem', background: 'var(--surface-2)', borderRadius: 10, border: '1px solid var(--border)' }}>
+          <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>Up Next</div>
+          {queue.map((slot, i) => (
+            <div key={slot.slug}>
+              <button
+                onClick={() => activateSlot(slot.slot)}
+                style={{ display: 'flex', alignItems: 'baseline', gap: '0.4rem', padding: '4px 0', width: '100%', textDecoration: 'none', borderRadius: 4, background: 'none', border: 'none', borderBottom: i < queue.length - 1 ? '1px solid var(--border)' : 'none', cursor: 'pointer', textAlign: 'left' }}
+              >
+                <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: '0.6rem', color: 'var(--accent)', minWidth: 14, flexShrink: 0 }}>{slot.slot}</span>
+                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', lineHeight: 1.3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', transition: 'color 0.12s' }} title={slot.title}
+                  onMouseEnter={e => e.target.style.color = 'var(--text)'}
+                  onMouseLeave={e => e.target.style.color = 'var(--text-muted)'}
+                >{slot.title}</span>
+              </button>
+              {activateError === slot.slot && (
+                <div style={{ fontSize: '0.65rem', color: 'var(--error)', padding: '2px 0 2px 18px' }}>slot unavailable</div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
     </>
   )
 }

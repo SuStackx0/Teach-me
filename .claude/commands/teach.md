@@ -87,6 +87,9 @@ If `in_progress != null`: run `python3 scripts/teach_cli.py get-current-lesson` 
 **(b) Completed-status drift vs curriculum-v2.json:**
 Run `python3 scripts/teach_cli.py get-curriculum` to read the curriculum. For every slug in the memory's `completed[]`: find that slug in any track's `ladder[]` (or as a track's `capstone`). If found and its `status` is not `"completed"`, run `python3 scripts/teach_cli.py update-topic-status <slug> "completed"` (using `completed_date`/`quiz_score_pct` from the memory entry where available). Slugs not found in the graph (custom/wildcard topics) are not an error — skip them.
 
+**(c) Queue slot contiguity:**
+Run `python3 scripts/teach_cli.py get-queue-slots` (returns a JSON array of slot numbers). Slots must be contiguous starting from 1 (e.g. `[1,2,3]`, not `[1,3]` or `[2,3]`). If there is a gap — a missing slot 1, or any hole in the sequence — the queue is out of sync. Compact it by running `python3 scripts/teach_cli.py remove-slot-1` as needed, which re-numbers remaining rows contiguously from 1 (see the Queue section). Note internally: "queue compacted". Do not alarm the user.
+
 ---
 
 ## Step 2 — Select Today's Topic
@@ -736,7 +739,15 @@ If `in_progress` starts with `"review-"`, run this flow instead of the normal de
 
 ### Step 8c — Normal Session Debrief
 
-If `in_progress` is set and is NOT a review session, run the full debrief:
+If `in_progress` is set and is NOT a review session, run the full debrief.
+
+**Identify the lesson being logged.** The active lesson lives in queue slot 1. Read it first so you know which slug/title/domain to log:
+
+```bash
+python3 scripts/teach_cli.py get-queue-lesson 1   # equivalently: get-current-lesson
+```
+
+Use this lesson's `meta.slug`, `meta.title`, and domain throughout the debrief and logging below.
 
 Ask:
 
@@ -855,6 +866,22 @@ python3 scripts/teach_cli.py get-current-lesson > /Users/sumanthg/Documents/teac
 ```
 
 Output: `📁 Lesson archived → .teach/archive/[slug].json`
+
+### Advance the Queue
+
+Now that this session is fully logged and archived, remove slot 1 and compact the queue so the next queued lesson (if any) becomes the new active lesson:
+
+```bash
+python3 scripts/teach_cli.py remove-slot-1
+```
+
+This deletes slot 1, re-numbers the remaining slots contiguously from 1, and syncs the lessons table so the new slot 1 becomes current. Then report the updated queue state:
+
+```bash
+python3 scripts/teach_cli.py get-queue-slots
+```
+
+If slots remain, output: `⏭  Queue advanced — next up: [new slot-1 title] ([K] lesson(s) queued)`. If the queue is now empty, output: `⏭  Queue empty — generate a new lesson with /teach.`
 
 ### Completion Output
 

@@ -1,7 +1,6 @@
-
 # teach-me — Daily AI Deep Dive System
 
-* [ ] 
+* [ ]
 
 ## Quick Start
 
@@ -26,7 +25,7 @@
 | `/tradeoff [topic]`  | Argue-both-sides trainer — steelman two sides of a real architecture decision, then commit to a call |
 | `/postmortem [name]` | Diagnose a real public outage from its timeline before the root cause is revealed                     |
 
-`/drill`, `/tradeoff`, and `/postmortem` are purely conversational (terminal-only, no React app) and log to their own top-level arrays in `memory.json` (`tradeoff_sessions`, `postmortem_sessions`) or `.teach/drill_stats.json` — they never touch `completed[]`, `streak`, or `weak_areas[]`.
+* [ ] 
 
 ## Project Layout
 
@@ -122,6 +121,7 @@ hybrid RAG (Neo4j + Weaviate), LoRA fine-tuning, multi-agent systems, vLLM/SGLan
 **IMPORTANT: This project runs in Docker. NEVER run `npm run build` or `pip install` directly.**
 
 To apply any frontend or backend changes:
+
 ```bash
 docker compose up --build -d
 ```

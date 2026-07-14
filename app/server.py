@@ -29,6 +29,19 @@ DB_PATH = Path(os.getenv("TEACH_DB_PATH", str(Path(__file__).parent.parent / "te
 DB.init_db(DB_PATH)
 _CONN = DB.get_db(DB_PATH)
 
+
+def live_streak(conn) -> int:
+    """Return streak only if last session was today or yesterday; else 0."""
+    stored = DB.meta_get(conn, "streak", 0)
+    last = DB.meta_get(conn, "last_session_date")
+    if not last:
+        return 0
+    today = datetime.now().date()
+    last_date = datetime.strptime(last, "%Y-%m-%d").date()
+    if (today - last_date).days > 1:
+        return 0
+    return stored
+
 app = FastAPI(title="teach-me API")
 app.add_middleware(
     CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"],
@@ -76,6 +89,17 @@ def get_queue_lesson(slot: int):
     return data
 
 
+@app.post("/api/queue/activate/{slot}")
+def activate_queue_slot(slot: int):
+    ok = DB.activate_queue_slot(_CONN, slot)
+    if not ok:
+        raise HTTPException(status_code=404, detail=f"Queue slot {slot} not found")
+    new_active = DB.get_current_lesson(_CONN)
+    active_slug = new_active.get("meta", {}).get("slug", "") if new_active else ""
+    _CONN.commit()
+    return {"ok": True, "active_slug": active_slug}
+
+
 # ── Lesson ────────────────────────────────────────────────────────────────────
 
 @app.get("/api/lesson")
@@ -100,10 +124,10 @@ def get_lesson_by_slug(slug: str):
 def get_library():
     memory = DB.get_memory(_CONN)
     completed = memory["completed"]
-    streak = memory["streak"]
+    streak = live_streak(_CONN)
 
     archived_slugs = {
-        r[0] for r in _CONN.execute("SELECT slug FROM lessons WHERE is_current=0").fetchall()
+        r[0] for r in _CONN.execute("SELECT slug FROM lessons WHERE archived_at IS NOT NULL").fetchall()
     }
 
     groups_dict: dict = {}
@@ -136,7 +160,9 @@ def get_library():
 
 @app.get("/api/memory")
 def get_memory():
-    return DB.get_memory(_CONN)
+    m = DB.get_memory(_CONN)
+    m["streak"] = live_streak(_CONN)
+    return m
 
 
 # ── Stats ─────────────────────────────────────────────────────────────────────
@@ -146,7 +172,7 @@ def get_stats():
     memory = DB.get_memory(_CONN)
     curriculum = DB.get_curriculum(_CONN)
     completed = memory["completed"]
-    streak = memory["streak"]
+    streak = live_streak(_CONN)
 
     tracks_raw = curriculum.get("tracks", [])
     mix_targets = curriculum.get("mix_targets", {})
@@ -291,6 +317,8 @@ def log_session(payload: SessionLog):
     current = DB.get_current_lesson(_CONN)
     if current:
         DB.archive_lesson(_CONN, payload.slug, current, today)
+
+    DB.remove_and_compact_queue(_CONN)
 
     _CONN.commit()
 
@@ -534,7 +562,7 @@ def delete_wishlist(item_id: str):
 def get_til():
     rows = _CONN.execute(
         "SELECT l.slug, l.content, s.date, s.domain FROM lessons l "
-        "LEFT JOIN sessions s ON l.slug=s.slug WHERE l.is_current=0 ORDER BY s.date DESC"
+        "LEFT JOIN sessions s ON l.slug=s.slug WHERE l.archived_at IS NOT NULL ORDER BY s.date DESC"
     ).fetchall()
     items = []
     for row in rows:

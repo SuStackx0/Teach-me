@@ -31,8 +31,23 @@ export function useLessonSession(url) {
   const [quizScore, setQuizScore] = useState(0)
   const [mqScores, setMqScores] = useState({})
   const pollRef = useRef(null)
-
   const retryRef = useRef(null)
+  const prevUrlRef = useRef(url)
+
+  useEffect(() => {
+    if (prevUrlRef.current === url) return
+    prevUrlRef.current = url
+    clearTimeout(retryRef.current)
+    clearInterval(pollRef.current)
+    setLesson(null)
+    setLoading(true)
+    setError(null)
+    setSections([])
+    setSectionIdx(0)
+    setVisited(new Set())
+    setQuizScore(0)
+    setMqScores({})
+  }, [url])
 
   const fetchLesson = useCallback(async (attempt = 0) => {
     const MAX = 12

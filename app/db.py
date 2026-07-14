@@ -354,7 +354,7 @@ def search_lessons(conn: sqlite3.Connection, q: str) -> list:
     rows = conn.execute(
         """SELECT l.slug, l.searchable_text
            FROM lessons_fts f JOIN lessons l ON f.rowid=l.rowid
-           WHERE lessons_fts MATCH ? AND l.is_current=0
+           WHERE lessons_fts MATCH ? AND l.archived_at IS NOT NULL
            LIMIT 30""",
         (q,),
     ).fetchall()
@@ -516,6 +516,75 @@ def set_queue_lesson(conn: sqlite3.Connection, slot: int, data: dict) -> None:
         "INSERT INTO lesson_queue(slot,content) VALUES(?,?) ON CONFLICT(slot) DO UPDATE SET content=excluded.content",
         (slot, json.dumps(data)),
     )
+
+
+def activate_queue_slot(conn: sqlite3.Connection, slot: int) -> bool:
+    """Promote queue slot N to slot 1, shifting slots 1..N-1 down by one.
+
+    Slot 1's content is also written into the lessons table as the current
+    lesson. Does NOT commit — caller commits.
+    """
+    if slot == 1:
+        return True
+
+    row = conn.execute("SELECT content FROM lesson_queue WHERE slot=?", (slot,)).fetchone()
+    if row is None:
+        return False
+    target_content = json.loads(row["content"])
+
+    # Shift: copy slot i-1 into slot i, for i from N down to 2.
+    for i in range(slot, 1, -1):
+        prev = conn.execute("SELECT content FROM lesson_queue WHERE slot=?", (i - 1,)).fetchone()
+        if prev is None:
+            continue
+        conn.execute(
+            "INSERT INTO lesson_queue(slot,content) VALUES(?,?) "
+            "ON CONFLICT(slot) DO UPDATE SET content=excluded.content",
+            (i, prev["content"]),
+        )
+
+    # Write target content into slot 1.
+    conn.execute(
+        "INSERT INTO lesson_queue(slot,content) VALUES(1,?) "
+        "ON CONFLICT(slot) DO UPDATE SET content=excluded.content",
+        (json.dumps(target_content),),
+    )
+
+    # Keep the lessons table in sync with the newly activated slot 1.
+    set_current_lesson(conn, target_content)
+    return True
+
+
+def remove_and_compact_queue(conn: sqlite3.Connection) -> None:
+    """Delete slot 1 and re-number remaining rows contiguously from 1.
+
+    Keeps the lessons table's current lesson in sync with the new slot 1.
+    Does NOT commit — caller commits.
+    """
+    # Read all slots except slot 1 before touching anything.
+    rows = conn.execute(
+        "SELECT content FROM lesson_queue WHERE slot != 1 ORDER BY slot ASC"
+    ).fetchall()
+    remaining = [r["content"] for r in rows]
+
+    # Write new slots first (UPSERT so no gap is ever visible), then delete
+    # any trailing slot that's no longer needed.
+    old_count = len(conn.execute("SELECT slot FROM lesson_queue").fetchall())
+    for new_slot, content in enumerate(remaining, start=1):
+        conn.execute(
+            "INSERT INTO lesson_queue(slot,content) VALUES(?,?) "
+            "ON CONFLICT(slot) DO UPDATE SET content=excluded.content",
+            (new_slot, content),
+        )
+    # Remove any slots beyond the new length (including old slot 1 if untouched).
+    new_count = len(remaining)
+    for dead_slot in range(new_count + 1, old_count + 1):
+        conn.execute("DELETE FROM lesson_queue WHERE slot=?", (dead_slot,))
+
+    if remaining:
+        set_current_lesson(conn, json.loads(remaining[0]))
+    else:
+        conn.execute("UPDATE lessons SET is_current=0 WHERE is_current=1")
 
 
 # ── Highlights ────────────────────────────────────────────────────────────────

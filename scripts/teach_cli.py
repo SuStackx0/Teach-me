@@ -11,6 +11,8 @@ Usage:
   python3 scripts/teach_cli.py get-lesson <slug>
   python3 scripts/teach_cli.py set-queue-lesson <slot>  (reads JSON from stdin)
   python3 scripts/teach_cli.py set-requiz-queue <json-array>
+  python3 scripts/teach_cli.py activate-slot <n>
+  python3 scripts/teach_cli.py remove-slot-1
 """
 import json
 import sys
@@ -22,6 +24,7 @@ sys.path.insert(0, str(ROOT / "app"))
 from db import get_db, init_db, DB_PATH, get_memory, get_curriculum, get_all_questions
 from db import set_current_lesson, get_current_lesson, meta_set, update_topic_status, get_lesson_by_slug
 from db import set_queue_lesson, get_queue_lesson, get_queue_slots, set_requiz_queue, upsert_weak_area
+from db import activate_queue_slot, remove_and_compact_queue
 
 db_path = ROOT / "teach.db"
 init_db(db_path)
@@ -91,6 +94,17 @@ def main():
         slot = int(sys.argv[2])
         data = get_queue_lesson(conn, slot)
         print(json.dumps(data if data else {}, indent=2))
+
+    elif cmd == "activate-slot":
+        slot = int(sys.argv[2])
+        ok = activate_queue_slot(conn, slot)
+        conn.commit()
+        print("activated" if ok else f"error: slot {slot} not found")
+
+    elif cmd == "remove-slot-1":
+        remove_and_compact_queue(conn)
+        conn.commit()
+        print("removed slot 1, compacted queue")
 
     else:
         print(f"Unknown command: {cmd}", file=sys.stderr)
