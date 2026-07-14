@@ -13,6 +13,8 @@ Usage:
   python3 scripts/teach_cli.py set-requiz-queue <json-array>
   python3 scripts/teach_cli.py activate-slot <n>
   python3 scripts/teach_cli.py remove-slot-1
+  python3 scripts/teach_cli.py set-review-content <slug>  (reads JSON from stdin)
+  python3 scripts/teach_cli.py get-slugs-without-review-content
 """
 import json
 import sys
@@ -105,6 +107,22 @@ def main():
         remove_and_compact_queue(conn)
         conn.commit()
         print("removed slot 1, compacted queue")
+
+    elif cmd == "set-review-content":
+        slug = sys.argv[2]
+        data = json.load(sys.stdin)
+        data["slug"] = slug
+        meta_set(conn, f"review_content:{slug}", json.dumps(data))
+        conn.commit()
+        print("ok")
+
+    elif cmd == "get-slugs-without-review-content":
+        rows = conn.execute(
+            "SELECT slug FROM lessons WHERE archived_at IS NOT NULL"
+        ).fetchall()
+        from db import meta_get
+        missing = [r["slug"] for r in rows if not meta_get(conn, f"review_content:{r['slug']}")]
+        print(json.dumps(missing))
 
     else:
         print(f"Unknown command: {cmd}", file=sys.stderr)

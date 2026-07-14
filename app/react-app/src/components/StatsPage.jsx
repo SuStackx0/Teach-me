@@ -247,7 +247,7 @@ function StudyGrid({ completed, heatmap }) {
         ))}
 
         {/* Day cells */}
-        {cells.map(({ col, row, dateStr, studied }) => (
+        {cells.map(({ col, row, dateStr, studied, count }) => (
           <rect
             key={dateStr}
             x={col * STEP}

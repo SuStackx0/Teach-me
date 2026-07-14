@@ -8,7 +8,11 @@ export default function CoreConcept({ lesson, conceptIdx, goNext, goPrev, canGoP
   const concept = concepts[conceptIdx]
   const total = concepts.length
   const microQuiz = concept?.micro_quiz || []
-  const [revealed, setRevealed] = useState({}) // idx → true
+  const inlineChecks = concept?.inline_checks || []
+  const keyTerms = concept?.key_terms || []
+  const [revealed, setRevealed] = useState({})
+  const [checkRevealed, setCheckRevealed] = useState({})
+  const [termOpen, setTermOpen] = useState(null)
 
   if (!concept) return <div className="section-fade"><p>Concept not found.</p></div>
 
@@ -19,9 +23,47 @@ export default function CoreConcept({ lesson, conceptIdx, goNext, goPrev, canGoP
       <span className="badge concept">◈ Concept {conceptIdx + 1}/{total}</span>
       <h2>{concept.title}</h2>
 
+      {concept.misconception && (
+        <div className="callout gotcha" style={{ marginBottom: '1.25rem' }}>
+          <span className="callout-title">Common Misconception</span>
+          <p style={{ marginBottom: '0.5rem', fontWeight: 500 }}>{concept.misconception.wrong_model}</p>
+          {concept.misconception.where_it_breaks && (
+            <p style={{ color: 'var(--text-secondary)', fontSize: '0.93rem' }}>
+              <strong>Where it breaks:</strong> {concept.misconception.where_it_breaks}
+            </p>
+          )}
+        </div>
+      )}
+
       {concept.explanation && (
         <div className="card">
           <MarkdownText text={concept.explanation} style={{ fontSize: '1.05rem', color: 'var(--text-primary)', maxWidth: '680px' }} />
+        </div>
+      )}
+
+      {inlineChecks.length > 0 && (
+        <div style={{ marginTop: '1rem' }}>
+          {inlineChecks.map((check, i) => (
+            <div key={i} className="inline-check">
+              <div className="inline-check-label">⏸ Pause & Predict</div>
+              <div className="inline-check-question">{check.question}</div>
+              {!checkRevealed[i] ? (
+                <button
+                  className="inline-check-btn"
+                  onClick={() => setCheckRevealed(r => ({ ...r, [i]: true }))}
+                >
+                  Reveal Answer
+                </button>
+              ) : (
+                <div className="inline-check-answer">
+                  <div style={{ fontWeight: 600, marginBottom: '0.35rem' }}>{check.answer}</div>
+                  {check.explanation && (
+                    <div style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>{check.explanation}</div>
+                  )}
+                </div>
+              )}
+            </div>
+          ))}
         </div>
       )}
 
@@ -29,6 +71,27 @@ export default function CoreConcept({ lesson, conceptIdx, goNext, goPrev, canGoP
         <div className="callout tip">
           <span className="callout-title">Analogy</span>
           <MarkdownText text={concept.analogy} />
+        </div>
+      )}
+
+      {keyTerms.length > 0 && (
+        <div className="key-terms">
+          <div className="key-terms-label">Key Terms</div>
+          <div className="key-terms-list">
+            {keyTerms.map((kt, i) => (
+              <div key={i} className="key-term-item">
+                <button
+                  className={`key-term-pill${termOpen === i ? ' open' : ''}`}
+                  onClick={() => setTermOpen(termOpen === i ? null : i)}
+                >
+                  {kt.term}
+                </button>
+                {termOpen === i && (
+                  <div className="key-term-def">{kt.definition}</div>
+                )}
+              </div>
+            ))}
+          </div>
         </div>
       )}
 

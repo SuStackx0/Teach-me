@@ -31,7 +31,7 @@ function ReviewCard({ item, accent }) {
 
   return (
     <Link
-      to={`/lesson/${item.slug}`}
+      to={`/review/lesson/${item.slug}`}
       style={{ textDecoration: 'none' }}
     >
       <div style={{

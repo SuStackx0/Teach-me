@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 
 function buildSections(lesson) {
-  const s = ['hook', 'concept_map']
+  const s = ['hook']
   const concepts = lesson.core_concepts || []
   concepts.forEach((_, i) => s.push(`concept:${i}`))
   s.push('scenario', 'insights', 'quiz', 'challenge', 'summary', 'complete')
@@ -10,7 +10,6 @@ function buildSections(lesson) {
 
 export function sectionLabel(section, lesson) {
   if (section === 'hook') return 'Hook'
-  if (section === 'concept_map') return 'Concept Map'
   if (section.startsWith('concept:')) {
     const idx = parseInt(section.split(':')[1])
     const c = (lesson.core_concepts || [])[idx]

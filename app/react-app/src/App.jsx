@@ -14,6 +14,7 @@ import HighlightsPage from './components/HighlightsPage.jsx'
 import GlossaryPage from './components/GlossaryPage.jsx'
 import SnippetsPage from './components/SnippetsPage.jsx'
 import ReviewPage from './components/ReviewPage.jsx'
+import ReviewSplitPage from './components/ReviewSplitPage.jsx'
 import CollectionsPage from './components/CollectionsPage.jsx'
 import PlannerPage from './components/PlannerPage.jsx'
 import FlashcardsPage from './components/FlashcardsPage.jsx'
@@ -38,6 +39,7 @@ export default function App() {
         <Route path="/glossary" element={<GlossaryPage />} />
         <Route path="/snippets" element={<SnippetsPage />} />
         <Route path="/review" element={<ReviewPage />} />
+        <Route path="/review/lesson/:slug" element={<ReviewSplitPage />} />
         <Route path="/collections" element={<CollectionsPage />} />
         <Route path="/planner" element={<PlannerPage />} />
         <Route path="/flashcards" element={<FlashcardsPage />} />

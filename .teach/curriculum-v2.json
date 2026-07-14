@@ -549,6 +549,22 @@
           "status": "deferred",
           "suggest_after": "2026-07-14",
           "builds_on": []
+        },
+        {
+          "slug": "asyncio-and-message-queues-fastapi",
+          "title": "AsyncIO & Message Queues for FastAPI",
+          "concepts": [
+            "asyncio event loop & coroutines",
+            "asyncio in FastAPI",
+            "message queue fundamentals",
+            "message queues in production with FastAPI"
+          ],
+          "builds_on": [],
+          "difficulty": "beginner-to-intermediate",
+          "estimated_minutes": 45,
+          "status": "completed",
+          "completed_date": "2026-07-06",
+          "quiz_score_pct": 0.8
         }
       ],
       "capstone": null,

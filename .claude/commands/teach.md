@@ -364,8 +364,7 @@ Generate this lean skeleton yourself — no agents needed, just fill the fields:
 ```json
 {
   "meta": { "slug": "...", "title": "...", "difficulty": "...", "estimated_minutes": 45, "prerequisites": [...], "concepts": [...] },
-  "hook": { "problem": "...", "narrative": "...", "why_it_matters": "..." },
-  "concept_map": { "summary": "...", "fits_with": [...], "diagram": { "type": "mermaid|ascii", "content": "..." } },
+  "hook": { "cold_open": "...", "problem": "...", "narrative": "...", "why_it_matters": "..." },
   "concept_outlines": [
     { "index": 0, "title": "...", "key_points": ["...", "..."] },
     { "index": 1, "title": "...", "key_points": ["...", "..."] }
@@ -407,11 +406,31 @@ QUALITY RULES:
 - Code snippets: short and illustrative only (5-10 lines). NO full programs, NO imports. Just the key lines that show the concept. Pseudocode is fine if it's clearer.
 - Diagrams: mermaid must use flowchart TD or graph LR. No spaces in node labels (use underscores). Only include if it shows something text genuinely can't convey.
 - micro_quiz: 1 simple question. Test whether they understood the mechanism with a basic scenario. Keep it approachable — not a gotcha.
+- misconception: Identify the single most common wrong mental model engineers start with for this concept. In `wrong_model`, state it plainly in 1-2 sentences as if you're quoting the mistaken belief. In `where_it_breaks`, give ONE concrete production scenario where following this wrong model leads to the wrong decision or a real failure.
+- inline_checks: 1-2 questions placed conceptually after the hardest part of the explanation. Phrase as "Before reading on, what would you expect if X?" or "Given what you just read, which of these is true?" — not gotchas. Each should have a clear single correct answer.
+- key_terms: 2-4 jargon terms used in the explanation that someone new to this specific area might not know. One plain-English sentence each. No definitions that just restate the term.
 
 OUTPUT FORMAT — return ONLY a valid JSON object, no markdown wrapper:
 {
   "title": "string",
+  "misconception": {
+    "wrong_model": "string — the specific wrong mental model most engineers start with, stated as the belief itself",
+    "where_it_breaks": "string — one concrete production scenario where this wrong model leads to the wrong call"
+  },
   "explanation": "string — thorough, scenario-first, example-rich, plain language. Minimum 350 words.",
+  "inline_checks": [
+    {
+      "question": "string — predict-this question after the hardest part of the explanation",
+      "answer": "string — the correct answer, 1-3 sentences",
+      "explanation": "string — why, and what the wrong intuition was"
+    }
+  ],
+  "key_terms": [
+    {
+      "term": "string — jargon word used in the explanation",
+      "definition": "string — one plain-English sentence"
+    }
+  ],
   "analogy": "string — 1-3 sentences. Must map precisely to the mechanism, not just vibes.",
   "diagram": {"type": "mermaid|ascii", "content": "string"} or null,
   "code_snippets": [
@@ -443,7 +462,6 @@ Parse each concept agent's JSON output. Each parsed concept object (including it
 {
   "meta": { ...from skeleton... },
   "hook": { ...from skeleton... },
-  "concept_map": { ...from skeleton... },
   "core_concepts": [ concept0, concept1, concept2, ... ],
   "warm_up": [],
   "_generation_status": "generating_assessments"
@@ -631,6 +649,7 @@ Update in_progress via: `python3 scripts/teach_cli.py set-memory-key "in_progres
 
 ### Depth & Tone
 
+- **COLD OPEN.** The hook's `cold_open` field is 2-3 sentences: drop the reader into the exact failure or production situation before any context. No setup, no "in this lesson." Example: "Your inference server is returning 200s but p99 just hit 14 seconds. GPU utilization shows 40%. You're about to learn exactly why." It should make someone stop scrolling.
 - **SCENARIO FIRST, ALWAYS.** Every concept and section should open with a concrete situation, not a definition. Bad: "Raft is a consensus algorithm." Good: "Your Redis cluster just lost its primary. Three replicas are now fighting over who's in charge. Without consensus, they'll all start accepting writes and split-brain will corrupt your data."
 - **PLAIN WORDS, SHORT SENTENCES.** Write like a Slack message to a smart colleague, not a conference paper. Never use: "leverages", "facilitates", "fundamentally", "in essence", "it is worth noting", "underpins", "inherently".
 - Reference real systems: vLLM, FlashAttention, Kafka, Redis, etcd, Kubernetes, Raft, PostgreSQL, Triton, SGLang, Medusa, EAGLE.
@@ -882,6 +901,26 @@ python3 scripts/teach_cli.py get-queue-slots
 ```
 
 If slots remain, output: `⏭  Queue advanced — next up: [new slot-1 title] ([K] lesson(s) queued)`. If the queue is now empty, output: `⏭  Queue empty — generate a new lesson with /teach.`
+
+### Generate Review Content
+
+After advancing the queue, generate spaced-repetition revision content for the just-completed lesson and store it. This runs **inline** — no agent needed, generate it yourself.
+
+Read the archived lesson: `python3 scripts/teach_cli.py get-lesson <slug>`
+
+Using its `core_concepts`, `quiz`, and `key_insights`, produce a JSON object with:
+- `recall_questions`: 5 questions testing **mechanism recall**, not definitions. Each: `{"q": "...", "a": "concise 1-3 sentence answer", "hint": "one-word category like 'math' or 'trade-off'"}`. Increasingly difficult, each covering a different concept.
+- `key_reminders`: 4 short sharp points — the non-obvious things engineers forget 2 weeks later. Subtle invariants, edge cases, real tradeoffs. Not definitions.
+- `title`: the lesson title
+
+Rules: questions must test WHY, not WHAT. Answers are concise and production-aware. No fluff.
+
+Store it:
+```bash
+echo '<json>' | python3 scripts/teach_cli.py set-review-content <slug>
+```
+
+This caches it so the Review page shows it instantly with no generation delay.
 
 ### Completion Output
 

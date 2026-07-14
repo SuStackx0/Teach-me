@@ -11,6 +11,12 @@ export default function Hook({ lesson, goNext, goPrev, canGoPrev, canGoNext }) {
       <span className="badge hook">◉ Hook</span>
       <h1>{meta.title || "Today's Lesson"}</h1>
 
+      {hook.cold_open && (
+        <div className="cold-open">
+          <MarkdownText text={hook.cold_open} />
+        </div>
+      )}
+
       <div className="card" style={{ marginTop: '1.25rem' }}>
         {hook.problem && <MarkdownText text={hook.problem} style={{ color: 'var(--text-primary)', fontWeight: 600, fontSize: '1.05rem', marginBottom: '0.75rem' }} />}
         {hook.narrative && <MarkdownText text={hook.narrative} style={{ fontSize: '1rem' }} />}
